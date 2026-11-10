@@ -301,14 +301,10 @@ export default class GitHub extends View {
         const ref = def ? `origin/${def}` : null;
         const inRef = new Set(ref ? (await git(["ls-tree", "-r", "--name-only", ref])).out.split("\n").filter(Boolean) : []);
         const docs = [...inRef].filter((f) => DOC.test(f));
-        const write = (f) => exec("sh", ["-c", SAFE + 'mkdir -p "$(dirname "$dest")" || exit 3; ' + inside
-          // $3: lo de la rama principal. Se escribe en un temporal nuevo (mktemp) y se mueve encima.
-          + 'tmp=$(mktemp "$(dirname "$dest")/.herdr.XXXXXX") || exit 3; git show "$3" > "$tmp" && mv -f "$tmp" "$dest" || { rm -f "$tmp"; exit 3; }',
-          "sh", path, f, `${ref}:${f}`], { cwd: main, on });
-        const remove = (f) => exec("sh", ["-c", SAFE + '[ -e "$dest" ] || exit 0; ' + inside + 'rm -f -- "$dest"', "sh", path, f], { on });
-        // Lo que un doc importa con @ruta (relativa al doc) se lee del worktree, o sea del PR:
-        // también sale de la rama principal, y si allá no existe, se saca. Hasta 5 niveles,
-        // como Claude. Rutas absolutas o con ~ no son del PR: quedan.
+        // Lo que un doc importa con @ruta se buscaría en el worktree, o sea en el PR. En vez de
+        // tocar esos archivos, el doc se escribe con lo importado ya adentro (también de la
+        // rama principal, hasta 5 niveles, como Claude) y sin los @: Claude no busca nada en
+        // el PR y los archivos del PR quedan como están.
         const norm = (base, rel) => {
           const out = [];
           for (const c of `${base ? `${base}/` : ""}${rel}`.split("/")) {
@@ -317,29 +313,44 @@ export default class GitHub extends View {
           }
           return out.join("/");
         };
-        const done = new Set(), touched = [];
-        let queue = docs.map((f) => [f, 0]);
-        while (queue.length) {
-          const [f, depth] = queue.shift();
-          if (done.has(f)) continue;
-          done.add(f);
-          if (!inRef.has(f)) { await remove(f); touched.push(f); continue; }
-          await write(f);
-          touched.push(f);
-          if (depth >= 5) continue;
-          const text = (await git(["show", `${ref}:${f}`])).out;
+        // Como Claude: @ al principio o después de un espacio, hasta el próximo espacio. Se le
+        // saca el @ a todos (resuelvan o no), menos a ~/ y rutas absolutas, que no son del PR.
+        const IMPORT = /(^|\s)@([^\s`'"()<>]+)/g;
+        const LEFT = /(^|\s)@(?![~/])\S/;
+        const expand = async (f, depth, seen) => {
+          let text = (await git(["show", `${ref}:${f}`])).out;
           const dir = f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "";
-          for (const m of text.matchAll(/(?:^|\s)@([^\s`'"()<>]+)/g)) {
-            const rel = m[1].replace(/[.,;:]+$/, "");
-            if (!rel || rel.startsWith("/") || rel.startsWith("~") || rel.includes("@")) continue;
+          const parts = [];
+          const targets = [];
+          text = text.replace(IMPORT, (m, pre, raw) => {
+            if (raw.startsWith("~") || raw.startsWith("/")) return m;
+            const rel = raw.replace(/[.,;:!?]+$/, "");
             const target = norm(dir, rel);
-            if (target) queue.push([target, depth + 1]);
-          }
+            if (target && inRef.has(target) && !seen.has(target) && depth < 5) { seen.add(target); targets.push(target); }
+            return `${pre}${raw}`;
+          });
+          for (const t of targets) parts.push(`\n\n<!-- ${t} (importado, de la rama principal) -->\n${await expand(t, depth + 1, seen)}`);
+          return text + parts.join("");
+        };
+        // Se escribe en un temporal nuevo (mktemp) y se mueve encima. $3: el contenido.
+        const write = (f, content) => exec("sh", ["-c", SAFE + 'mkdir -p "$(dirname "$dest")" || exit 3; ' + inside
+          + 'tmp=$(mktemp "$(dirname "$dest")/.herdr.XXXXXX") || exit 3; printf "%s\\n" "$3" > "$tmp" && mv -f "$tmp" "$dest" || { rm -f "$tmp"; exit 3; }',
+          "sh", path, f, content], { on });
+        let broken = null;
+        for (const f of docs) {
+          const content = await expand(f, 0, new Set([f]));
+          // Control: no queda ningún @ que Claude fuera a buscar en el worktree.
+          if (LEFT.test(content)) { broken = f; break; }
+          const w = await write(f, content);
+          if (w.code !== 0) { broken = f; break; }
         }
-        // Que git no los muestre como cambios (con sparse-checkout, --skip-worktree no se sostiene).
+        // Que git no los muestre como cambios (con sparse-checkout, --skip-worktree no se
+        // sostiene), y así la próxima vez se limpian, aunque esta haya fallado.
         const tracked = new Set((await git(["ls-files"], path)).out.split("\n"));
-        const mark = touched.filter((f) => tracked.has(f));
+        const mark = docs.filter((f) => tracked.has(f));
         if (mark.length) await git(["update-index", "--assume-unchanged", "--", ...mark], path);
+        // Si no se pudo (un symlink del PR en el camino, por ejemplo), no lanzo el agente.
+        if (broken) return fail(`No pude preparar ${broken} de la rama principal en el worktree. No lanzo el agente ahí.`);
       }
       // En su proyecto; si el repo no está abierto en Herdr, un proyecto nuevo para él.
       // Todo en modo skip, como cc / cx. Claude sin settings del proyecto (igual quedaron
