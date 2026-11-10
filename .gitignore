@@ -1,0 +1,6 @@
+# Tus valores (branchPrefix, projects): no van al repo.
+mods/herdr-mod/config.local.json
+# Los escribe Herdr.
+mods/herdr-mod/**/gpui-kit.d.ts
+mods/herdr-mod/**/jsconfig.json
+__pycache__/

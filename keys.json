@@ -1,0 +1,12 @@
+{
+  "global": {
+    "cmd-w": "herdr-mod.close",
+    "cmd-shift-w": "herdr-mod.close",
+    "cmd-j": "herdr-mod.waiting",
+    "cmd-shift-c": "herdr-mod.claude",
+    "cmd-shift-x": "herdr-mod.codex",
+    "cmd-shift-g": "herdr-mod.github",
+    "cmd-shift-e": "herdr-mod.equipo",
+    "cmd-k": "herdr-mod.buscar"
+  }
+}
