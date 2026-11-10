@@ -264,10 +264,15 @@ export default class GitHub extends View {
           + 'dest="$wt/$rel"; [ -L "$dest" ] && exit 3; ';
         const inside = 'real=$(cd "$(dirname "$dest")" && pwd -P) || exit 3; case "$real/" in "$root"/*) ;; *) exit 3;; esac; ';
         if (!fresh) {
-          const prev = (await git(["ls-files"], path)).out.split("\n").filter((f) => DOC.test(f));
-          if (prev.length) {
-            await git(["update-index", "--no-assume-unchanged", "--", ...prev], path);
-            for (const f of prev) await exec("sh", ["-c", SAFE + '[ -e "$dest" ] || exit 0; ' + inside + 'rm -f -- "$dest"', "sh", path, f], { on });
+          // Lo que puse la vez anterior (marcado assume-unchanged: "h" en ls-files -v) vuelve
+          // a como lo dejó el PR: los docs se borran (están fuera del sparse) y los importados
+          // se restauran.
+          const marked = (await git(["ls-files", "-v"], path)).out.split("\n").filter((l) => /^[a-z] /.test(l)).map((l) => l.slice(2));
+          if (marked.length) {
+            await git(["update-index", "--no-assume-unchanged", "--", ...marked], path);
+            for (const f of marked.filter((f) => DOC.test(f))) await exec("sh", ["-c", SAFE + '[ -e "$dest" ] || exit 0; ' + inside + 'rm -f -- "$dest"', "sh", path, f], { on });
+            const back = marked.filter((f) => !DOC.test(f));
+            if (back.length) await git(["checkout", "--", ...back], path);
           }
         }
         // Sin barra al final también agarra archivos y symlinks (un .claude que apunta a otra carpeta).
@@ -294,16 +299,46 @@ export default class GitHub extends View {
         if (!def) for (const b of ["main", "master"]) if ((await git(["show-ref", "--verify", "--quiet", `refs/remotes/origin/${b}`])).ok) { def = b; break; }
         if (def) await fetch(`refs/heads/${def}`, `refs/remotes/origin/${def}`);
         const ref = def ? `origin/${def}` : null;
-        const docs = ref ? (await git(["ls-tree", "-r", "--name-only", ref])).out.split("\n").filter((f) => DOC.test(f)) : [];
-        for (const f of docs) {
-          // $3: lo de la base. Se escribe en un temporal nuevo (mktemp) y se mueve encima.
-          await exec("sh", ["-c", SAFE + 'mkdir -p "$(dirname "$dest")" || exit 3; ' + inside
-            + 'tmp=$(mktemp "$(dirname "$dest")/.herdr.XXXXXX") || exit 3; git show "$3" > "$tmp" && mv -f "$tmp" "$dest" || { rm -f "$tmp"; exit 3; }',
-            "sh", path, f, `${ref}:${f}`], { cwd: main, on });
+        const inRef = new Set(ref ? (await git(["ls-tree", "-r", "--name-only", ref])).out.split("\n").filter(Boolean) : []);
+        const docs = [...inRef].filter((f) => DOC.test(f));
+        const write = (f) => exec("sh", ["-c", SAFE + 'mkdir -p "$(dirname "$dest")" || exit 3; ' + inside
+          // $3: lo de la rama principal. Se escribe en un temporal nuevo (mktemp) y se mueve encima.
+          + 'tmp=$(mktemp "$(dirname "$dest")/.herdr.XXXXXX") || exit 3; git show "$3" > "$tmp" && mv -f "$tmp" "$dest" || { rm -f "$tmp"; exit 3; }',
+          "sh", path, f, `${ref}:${f}`], { cwd: main, on });
+        const remove = (f) => exec("sh", ["-c", SAFE + '[ -e "$dest" ] || exit 0; ' + inside + 'rm -f -- "$dest"', "sh", path, f], { on });
+        // Lo que un doc importa con @ruta (relativa al doc) se lee del worktree, o sea del PR:
+        // también sale de la rama principal, y si allá no existe, se saca. Hasta 5 niveles,
+        // como Claude. Rutas absolutas o con ~ no son del PR: quedan.
+        const norm = (base, rel) => {
+          const out = [];
+          for (const c of `${base ? `${base}/` : ""}${rel}`.split("/")) {
+            if (c === "" || c === ".") continue;
+            if (c === "..") { if (!out.length) return null; out.pop(); } else out.push(c);
+          }
+          return out.join("/");
+        };
+        const done = new Set(), touched = [];
+        let queue = docs.map((f) => [f, 0]);
+        while (queue.length) {
+          const [f, depth] = queue.shift();
+          if (done.has(f)) continue;
+          done.add(f);
+          if (!inRef.has(f)) { await remove(f); touched.push(f); continue; }
+          await write(f);
+          touched.push(f);
+          if (depth >= 5) continue;
+          const text = (await git(["show", `${ref}:${f}`])).out;
+          const dir = f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "";
+          for (const m of text.matchAll(/(?:^|\s)@([^\s`'"()<>]+)/g)) {
+            const rel = m[1].replace(/[.,;:]+$/, "");
+            if (!rel || rel.startsWith("/") || rel.startsWith("~") || rel.includes("@")) continue;
+            const target = norm(dir, rel);
+            if (target) queue.push([target, depth + 1]);
+          }
         }
         // Que git no los muestre como cambios (con sparse-checkout, --skip-worktree no se sostiene).
         const tracked = new Set((await git(["ls-files"], path)).out.split("\n"));
-        const mark = docs.filter((f) => tracked.has(f));
+        const mark = touched.filter((f) => tracked.has(f));
         if (mark.length) await git(["update-index", "--assume-unchanged", "--", ...mark], path);
       }
       // En su proyecto; si el repo no está abierto en Herdr, un proyecto nuevo para él.

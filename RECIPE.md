@@ -88,7 +88,9 @@ interfaz está en español.
     `AGENTS.override.md`. Si algo de eso queda a la vista, no lanza el agente.
   - Después copia los `CLAUDE.md` y `AGENTS.md` de la rama principal del repo
     (`origin/HEAD`; nunca la base del PR, que la elige quien lo abre), sin seguir symlinks
-    del PR, con `--assume-unchanged` para que `git status` quede limpio.
+    del PR, con `--assume-unchanged` para que `git status` quede limpio. Lo que esos docs
+    importan con `@ruta` también sale de la rama principal (hasta 5 niveles), y si allá no
+    existe, se saca: el PR no puede meter instrucciones por un archivo importado.
   - Abre Claude (`--setting-sources user --dangerously-skip-permissions`) o Codex
     (`--dangerously-bypass-approvals-and-sandbox`), en modo skip.
   - Si la skill `pr-review` está en `~/.claude/skills`, le pide `/pr-review <n>`. Si no,
