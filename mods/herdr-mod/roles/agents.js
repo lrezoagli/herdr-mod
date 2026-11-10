@@ -108,6 +108,10 @@ export default class Agents extends View {
     this.sleeping = JSON.parse(localStorage.getItem("sleeping") ?? "{}");
     cx.timer.every(60000, (cx) => this.sleepIdle(cx));
     cx.timer.after(30000, (cx) => this.sleepIdle(cx));
+    // Si herdr-core se reinició (reinicio de la compu, actualización), los agentes que estaban
+    // andando quedaron como shells: pasan a dormidos y vuelven con --resume al abrirlos.
+    this.recovered = false;
+    cx.timer.after(8000, (cx) => this.recoverAfterRestart(cx));
     this.reviewWarned = new Set();
     cx.timer.every(5000, (cx) => this.loadEstado(cx));
     this.loadEstado(cx);
@@ -172,6 +176,7 @@ export default class Agents extends View {
         }
         if (JSON.stringify(next) !== JSON.stringify(this.lk)) {
           this.lk = next;
+          this.trackRunning();
           this.syncNames();
           setShared("herdr-mod.estado", next);
           this.publishAlerts();
@@ -666,6 +671,50 @@ export default class Agents extends View {
       notify({ title: `Dormí ${slept.length === 1 ? slept[0] : `${slept.length} agentes`}`, body: `${slept.length > 1 ? slept.join(", ") + ": " : ""}2 h sin uso. Siguen en la lista (zz); al abrirlos vuelven donde estaban.`, level: "info", timeout: 8000 });
       cx.notify();
     }
+  }
+
+  // Qué agente corre en cada terminal (con su sesión y cómo se lanzó), y en qué herdr-core:
+  // localStorage "running". Si el core cambia, recoverAfterRestart sabe qué se cortó.
+  trackRunning() {
+    if (!this.recovered || !this.corePid) return;
+    const out = {};
+    for (const a of agents()) {
+      const st = this.lk?.[a.address];
+      if (!st || !["claude-code", "codex"].includes(st.agent) || a.address.includes("/")) continue;
+      out[a.address] = { addr: a.address, pane: a.pane, space: a.space, space_name: a.space_name, program: a.program,
+        title: this.who(a.address), kind: st.agent, session: st.session ?? null, argv: st.argv ?? [] };
+    }
+    const json = JSON.stringify({ core: this.corePid, agents: out });
+    if (json !== this.runningJson) { this.runningJson = json; localStorage.setItem("running", json); }
+  }
+
+  recoverAfterRestart(cx) {
+    cx.spawn(async (cx) => {
+      try {
+        const r = await exec("hc", ["server", "status", "--json"]);
+        this.corePid = JSON.parse(r.stdout || "{}").pid ?? null;
+        const prev = JSON.parse(localStorage.getItem("running") ?? "null");
+        if (this.corePid && prev?.core && prev.core !== this.corePid) {
+          const live = new Set(terminals().filter((k) => k.state === "live").map((k) => k.address));
+          const now = new Set(agents().map((a) => a.address));
+          const back = [];
+          for (const [addr, rec] of Object.entries(prev.agents ?? {})) {
+            if (!live.has(addr) || now.has(addr) || this.sleeping[addr]) continue;
+            const pane = panes().find((p) => p.terminal === addr)?.pane ?? rec.pane;
+            this.sleeping[addr] = { ...rec, pane, seq: 0, at: Date.now(), restarted: true };
+            back.push(rec.title || addr);
+          }
+          if (back.length) {
+            localStorage.setItem("sleeping", JSON.stringify(this.sleeping));
+            notify({ title: `${back.length === 1 ? back[0] : `${back.length} agentes`} se cortaron con el reinicio`,
+              body: `${back.length > 1 ? back.join(", ") + ". " : ""}Quedan en la lista (zz): al abrirlos vuelven con su sesión.`, level: "info", timeout: 12000 });
+          }
+        }
+      } catch {}
+      this.recovered = true;
+      this.trackRunning();
+      cx.notify();
+    });
   }
 
   // El comando que lo trae de vuelta: sus mismos flags, sin la sesión vieja ni el prompt.

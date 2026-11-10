@@ -60,6 +60,8 @@ grouped by project and drawn as a tree of git branches:
   memory. Their row stays, marked `zz`. Click it, or focus its tab, and the agent comes
   back with `claude --resume <session>` or `codex resume <id>`, with the same flags it
   had. Agents with a team, live sub-agents or a running review never sleep.
+- **Survives restarts.** When herdr-core restarts (a reboot or an update), the agents that
+  were running come back as `zz` rows too, with a notice. Opening one resumes its session.
 
 ### Tabs and new agents
 

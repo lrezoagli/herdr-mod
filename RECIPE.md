@@ -67,6 +67,9 @@ interfaz está en español.
 
   Clic o foco lo despierta con `--resume <sesión>` o `codex resume <id>` y los mismos
   flags. Si no tenía conversación, arranca de cero.
+- **Reinicios.** El rol `agents` guarda qué agente corre en cada terminal y en qué herdr-core
+  (pid de `hc server status`). Si el core cambió, los que estaban andando y ahora son una
+  shell pasan a dormidos, con un aviso, y vuelven con su sesión al abrirlos.
 - **Nombres.** Un agente creado desde el mod nace con nombre: su pestaña y, en Claude,
   `claude -n <nombre>`. Doble clic o ✎ lo renombra. La sesión de Claude se mantiene con
   el mismo nombre: si no coincide, el mod le manda `/rename`, solo con el agente quieto y
