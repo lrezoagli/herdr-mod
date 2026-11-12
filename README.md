@@ -147,6 +147,20 @@ and project.
 - The **Equipo** panel shows Claude agent teams: one card per teammate, with its task,
   what it is doing and what it answered.
 
+### Clean up worktrees (⌘⇧K)
+
+Lists the worktrees under your `worktreeRoots` (`<root>/<repo>/<name>`) and sorts them:
+
+- **Can be deleted** (checked by default): no terminal is in it, no agent uses it (sleeping
+  ones included: their Claude or Codex session says where they were), it has no uncommitted
+  changes and no commits missing from the remote or from main.
+- **Check by hand**: it has something you would lose. Shown with the reason, never deleted
+  from here.
+- **In use**: just counted.
+
+Enter deletes the checked ones with `git worktree remove` (no `--force`), after checking each
+one again. The branch stays, so you can reopen it.
+
 ## Install
 
 ### With your agent
@@ -199,6 +213,7 @@ Create `~/.config/herdr-app/mods/herdr-mod/config.local.json`. It overrides
 |---|---|---|
 | `branchPrefix` | `""` | The prefix of your branches. It is hidden in the UI, and issue `42` becomes branch `<prefix>IS-42`. |
 | `projects` | `["~/Projects"]` | Folders searched (2 levels deep) for clones of your repos, so reviews and PR fixes also work for repos you don't have open in Herdr. |
+| `worktreeRoots` | `["~/.herdr/worktrees"]` | Folders with worktrees (`<root>/<repo>/<name>`) that "Clean up worktrees" checks. |
 
 The mod reloads by itself when you save the file.
 
@@ -221,6 +236,7 @@ nothing.
 | ⌘⇧X | `herdr-mod.codex` | New Codex agent in a worktree |
 | ⌘⇧G | `herdr-mod.github` | Toggle the GitHub panel |
 | ⌘⇧E | `herdr-mod.equipo` | Toggle the team panel |
+| ⌘⇧K | `herdr-mod.limpiar` | Clean up orphaned worktrees |
 
 You can rebind them in `keys.json`. The hints in the bottom-right corner follow your keys.
 
@@ -252,6 +268,7 @@ state. Most of it is written by the `agents` role.
 | `teams.py` | 5 s | Claude agent teams |
 | `usage.py`, `limits.py` | 30–60 s | token usage and limits |
 | `stats.sh` | 10 s | CPU, RAM and disk |
+| `limpiar.py` | on ⌘⇧K | worktrees in `worktreeRoots`, `hc ls`, the mod's sleeping agents and their sessions; deletes with `git worktree remove` |
 
 Expensive work is cached in `~/.cache/herdr-limits/`.
 

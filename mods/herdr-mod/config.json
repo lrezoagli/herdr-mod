@@ -2,5 +2,8 @@
   "branchPrefix": "",
   "projects": [
     "~/Projects"
+  ],
+  "worktreeRoots": [
+    "~/.herdr/worktrees"
   ]
 }

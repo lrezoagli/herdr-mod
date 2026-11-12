@@ -7,6 +7,7 @@
     "cmd-shift-x": "herdr-mod.codex",
     "cmd-shift-g": "herdr-mod.github",
     "cmd-shift-e": "herdr-mod.equipo",
-    "cmd-k": "herdr-mod.buscar"
+    "cmd-k": "herdr-mod.buscar",
+    "cmd-shift-k": "herdr-mod.limpiar"
   }
 }

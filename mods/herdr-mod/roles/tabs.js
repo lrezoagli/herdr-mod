@@ -58,6 +58,7 @@ export default class Tabs extends View {
         // Los diálogos del mod (⌘J, ⌘K, ⌘W): este rol está siempre a la vista, los abre él.
         else if (c === "waiting") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 820, height: 520, key: "herdr-mod.waiting", props: { role: "waiting" } });
         else if (c === "buscar") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 820, height: 560, key: "herdr-mod.buscar", props: { role: "buscar" } });
+        else if (c === "limpiar") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 860, height: 600, key: "herdr-mod.limpiar", props: { role: "limpiar" } });
         else if (c === "close") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 440, height: 200, props: { role: "close" } });
       }
     });

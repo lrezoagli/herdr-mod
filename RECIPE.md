@@ -134,7 +134,8 @@ interfaz está en español.
 - **Configuración.** `config.json` (valores por defecto) y `config.local.json` (los tuyos,
   fuera de git):
   - `branchPrefix`: tu prefijo de ramas, por ejemplo `"usuario/"`;
-  - `projects`: carpetas donde buscar tus clones.
+  - `projects`: carpetas donde buscar tus clones;
+  - `worktreeRoots`: carpetas con worktrees (`<carpeta>/<repo>/<nombre>`) para limpiar.
 - **Scripts (`scripts/`).**
   - `agentes.py` (cada 5 s): pid, argv, sesión, nombre de la sesión y actividad de cada
     agente, leídos de `~/.claude/sessions`, `~/.claude/projects` y `~/.codex/sessions`.
@@ -145,6 +146,10 @@ interfaz está en español.
     encontrados en `projects`.
   - `usage.py`: tokens y costo estimado desde los transcripts.
   - `limits.py`: límites de 5 h y semana.
+  - `limpiar.py` (con ⌘⇧K, rol `limpiar`): `list` clasifica los worktrees en se-pueden-borrar
+    (sin terminal ni agente, dormidos incluidos por la carpeta de su sesión; sin cambios ni
+    commits fuera del remoto o de main), para-revisar y en-uso; `remove` vuelve a chequear
+    cada uno y borra con `git worktree remove` sin `--force`.
   - `stats.sh`: CPU, RAM y disco.
 - **Comandos de Herdr usados.** `tab.new {space, name, folder, argv, task}`, `space.new`,
   `space.move`, `space.select`, `tab.rename`, `tab.close {confirmed}`,
