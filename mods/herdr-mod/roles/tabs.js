@@ -59,7 +59,7 @@ export default class Tabs extends View {
         else if (c === "waiting") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 820, height: 520, key: "herdr-mod.waiting", props: { role: "waiting" } });
         else if (c === "buscar") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 820, height: 560, key: "herdr-mod.buscar", props: { role: "buscar" } });
         else if (c === "limpiar") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 860, height: 600, key: "herdr-mod.limpiar", props: { role: "limpiar" } });
-        else if (c === "close") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 440, height: 200, props: { role: "close" } });
+        else if (c === "close") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 440, height: 240, props: { role: "close" } });
       }
     });
     this.pressed = null;
@@ -121,7 +121,7 @@ export default class Tabs extends View {
         .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
         .when(c.status === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
         .when(c.status === "blocked" || c.status === "done", el => el.child(div().size(6).rounded(3).bg(t[c.status])))
-        .when(c.active, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "herdr-mod", kind: "dialog", width: 440, height: 200, props: { role: "close", tab: c.id } }); tip(["tab.close", "cerrar la pestaña"]); }).child(svg("mods/pane/close.svg").size(12))));
+        .when(c.active, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "herdr-mod", kind: "dialog", width: 440, height: 240, props: { role: "close", tab: c.id } }); tip(["tab.close", "cerrar la pestaña"]); }).child(svg("mods/pane/close.svg").size(12))));
     };
     const root = layout(), sidebar = find(root, "sidebar"), w = window();
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.

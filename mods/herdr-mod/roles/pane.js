@@ -40,7 +40,7 @@ export default class Pane extends View {
       .on_click((_e, cx) => {
         cx.stop_propagation();
         // cerrar pasa por el rol close (pregunta si hay un agente).
-        if (command === "pane.close") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 440, height: 200, props: { role: "close", pane: args.pane } });
+        if (command === "pane.close") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 440, height: 240, props: { role: "close", pane: args.pane } });
         else run(command, args);
       })
       .child(svg(`mods/herdr-mod/assets/${icon}.svg`).size(14));

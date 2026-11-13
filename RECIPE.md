@@ -80,7 +80,10 @@ interfaz está en español.
   - Soltar sobre el título del proyecto lo saca.
 - **Cerrar.** ⌘W y ⌘⇧W cierran el panel con foco, no la pestaña. Si es un agente,
   pregunta (Enter cierra, Esc cancela). La ✕ de la pestaña y la del encabezado también
-  preguntan.
+  preguntan. Si con eso se cierra lo último que usaba un worktree (de `worktreeRoots`),
+  el diálogo suma "Borrar también el worktree": marcada si no se pierde nada (`limpiar.py
+  check --ignore <terminales que se cierran>`), desmarcada y con el motivo si sí. Al
+  confirmar, `limpiar.py remove` lo vuelve a chequear y borra con `git worktree remove`.
 - **Cerrar pedido.** Al pasar el mouse por un pedido aparece ✕ → "¿cerrar?". Sus hijas
   pasan a su base, y la rama se borra solo si no tiene worktree ni commits sin mergear.
 - **Review de un PR ajeno (botones cc / cx).**

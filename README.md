@@ -126,6 +126,12 @@ has been waiting for more than 24 hours.
 ⌘W closes **only the focused pane**, not the whole tab. If that pane runs an agent, it
 asks first. The ✕ on tabs and on pane headers asks too.
 
+If what you close is the last thing using a worktree (under `worktreeRoots`), the dialog
+also offers **"Delete the worktree too"**. It is checked when nothing would be lost (the same
+check as ⌘⇧K, not counting what you are closing), and unchecked with the reason when
+something would (uncommitted changes, unpushed commits, a sleeping agent). It deletes with
+`git worktree remove`; the branch stays.
+
 ![Close dialog](docs/images/close.png)
 
 ### Footer

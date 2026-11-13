@@ -3,6 +3,8 @@
 
   limpiar.py list <carpeta>...           JSON con cada worktree de esas carpetas (<carpeta>/<repo>/<nombre>)
   limpiar.py remove <worktree>...         borra los que sigan siendo seguros (git worktree remove, sin --force)
+  limpiar.py check <worktree>...          JSON con el estado de esos (para el diálogo de cerrar)
+  --ignore t1,t2   no cuenta esas terminales (ni sus registros de dormido): las que se están cerrando
 
 En uso: una terminal de herdr-core parada ahí (vivas y terminadas) o un agente dormido del mod
 (su sesión de Claude o Codex dice en qué carpeta estaba).
@@ -37,7 +39,7 @@ def first_cwd(path, pick):
         pass
 
 
-def users():
+def users(ignore=()):
     """carpeta real -> quién la usa"""
     used = {}
     add = lambda cwd, who: cwd and used.setdefault(os.path.realpath(cwd), []).append(who)
@@ -45,7 +47,9 @@ def users():
     if c != 0:
         sys.exit("no pude listar las terminales de herdr-core (hc ls): no borro nada")
     for t in json.loads(out).get("terminals", []):
-        add(t.get("cwd"), t.get("where") or t.get("address"))
+        # Las terminadas por cierre (killed) ya no tienen pestaña; las que terminaron solas siguen a la vista.
+        if t.get("address") not in ignore and not (t.get("state") == "finished" and t.get("reason") == "killed"):
+            add(t.get("cwd"), t.get("where") or t.get("address"))
     # Dormidos: en todas las copias del store (también restos viejos).
     for f in glob.glob(H("~/.config/herdr-app/data/herdr-mod/store*.json")):
         try:
@@ -57,6 +61,8 @@ def users():
                 continue
             recs = json.loads(v) if isinstance(v, str) else v
             for r in (recs or {}).values():
+                if r.get("addr") in ignore:
+                    continue
                 sid, who = r.get("session"), f"dormido: {r.get('title') or r.get('addr')}"
                 if not sid:
                     continue
@@ -126,13 +132,25 @@ def listing(roots):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("list", "remove"):
+    args, ignore = [], set()
+    it = iter(sys.argv[1:])
+    for a in it:
+        if a == "--ignore":
+            ignore = set(next(it, "").split(","))
+        else:
+            args.append(a)
+    if not args or args[0] not in ("list", "remove", "check"):
         sys.exit(__doc__)
+    sys.argv = [sys.argv[0], *args]
+    if args[0] == "check":
+        used = users(ignore)
+        print(json.dumps([check(os.path.realpath(p), used) for p in args[1:]], ensure_ascii=False))
+        return
     if sys.argv[1] == "list":
         rows, used = listing(sys.argv[2:])
         print(json.dumps({"rows": rows, "unknown": used.get("?", [])}, ensure_ascii=False))
         return
-    used = users()
+    used = users(ignore)
     out = []
     for p in sys.argv[2:]:
         p = os.path.realpath(p)
