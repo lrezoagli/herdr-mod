@@ -1,14 +1,14 @@
 #!/bin/sh
-# CPU, RAM, disco, carga, bateria, GPU y procesos que mas consumen, como una linea
-# JSON. Solo sh, awk y comandos del sistema: corre igual aca (macOS) que en una
-# maquina remota (macOS o Linux) por `exec(..., { on })`, sin instalar nada.
-export LC_ALL=C LANG=C  # decimales con punto (aca el locale es es_AR)
+# CPU, RAM, disk, load, battery, GPU and top processes, as a single JSON
+# line. Only sh, awk and system commands: runs the same here (macOS) as on a
+# remote machine (macOS or Linux) via `exec(..., { on })`, with nothing to install.
+export LC_ALL=C LANG=C  # decimal point, regardless of the user's locale
 os=$(uname -s)
 host=$(hostname -s 2>/dev/null || hostname)
 q() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 if [ "$os" = Darwin ]; then
   ncpu=$(sysctl -n hw.ncpu)
-  # iostat y no top: top recorre todos los procesos (casi 1 s de CPU por vuelta).
+  # iostat rather than top: top walks every process (almost 1 s of CPU per run).
   idle=$(iostat -n 0 -c 2 -w 1 | awk 'END {print $3+0}')
   cpu=$(awk -v i="$idle" 'BEGIN {printf "%.1f", 100 - i}')
   total=$(sysctl -n hw.memsize)

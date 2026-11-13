@@ -1,11 +1,11 @@
-// Limpiar worktrees (⌘K → "limpiar", o el comando herdr-mod.limpiar): los worktrees que ya
-// nadie usa. Los revisa scripts/limpiar.py en las carpetas de cfg().worktreeRoots.
-// - Se pueden borrar (marcados de entrada): sin terminal ni agente (tampoco dormido), sin
-//   cambios y sin commits que falten en el remoto o en main.
-// - Para revisar: tienen algo que se perdería; se muestran pero no se borran desde acá.
-// - En uso: solo se cuentan.
-// Borra con git worktree remove (sin --force): la rama queda. El script vuelve a chequear
-// cada uno justo antes de borrarlo. Enter borra los marcados, Esc cierra.
+// Clean up worktrees (⌘K → "limpiar", or the herdr-mod.limpiar command): worktrees nobody
+// uses anymore. scripts/limpiar.py checks them in the cfg().worktreeRoots folders.
+// - Can be deleted (checked by default): no terminal or agent (not even dormant), no
+//   changes and no commits missing from the remote or main.
+// - To review: they have something that would be lost; shown but not deleted from here.
+// - In use: only counted.
+// Deletes with git worktree remove (no --force): the branch stays. The script re-checks
+// each one right before deleting it. Enter deletes the checked ones, Esc closes.
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme, props, closeOverlay, exec, home } from "herdr";
@@ -37,7 +37,7 @@ export default class Limpiar extends View {
       const d = JSON.parse(r.stdout);
       this.rows = d.rows; this.unknown = d.unknown ?? []; this.error = "";
       this.marked = new Set(this.rows.filter((x) => x.state === "safe").map((x) => x.path));
-    } catch { this.rows = []; this.error = (r.stderr || r.stdout || "no pude revisar los worktrees").trim().split("\n").pop(); }
+    } catch { this.rows = []; this.error = (r.stderr || r.stdout || "couldn't check the worktrees").trim().split("\n").pop(); }
   }
 
   remove(cx) {
@@ -46,7 +46,7 @@ export default class Limpiar extends View {
     cx.spawn(async (cx) => {
       const r = await exec("python3", [`${dir()}/scripts/limpiar.py`, "remove", ...this.marked]);
       let res = [];
-      try { res = JSON.parse(r.stdout); } catch { res = [{ path: "", ok: false, why: (r.stderr || "falló el borrado").trim().split("\n").pop() }]; }
+      try { res = JSON.parse(r.stdout); } catch { res = [{ path: "", ok: false, why: (r.stderr || "delete failed").trim().split("\n").pop() }]; }
       this.done = { ok: res.filter((x) => x.ok).length, fail: res.filter((x) => !x.ok) };
       this.busy = false; this.rows = null; cx.notify();
       await this.fetch(); cx.notify();
@@ -82,13 +82,13 @@ export default class Limpiar extends View {
     };
     const list = v_flex().gap(1)
       .when(Boolean(this.done), (el) => el.child(div().pb(6).text_color(this.done.fail.length ? t.blocked : t.accent)
-        .child(`Borré ${this.done.ok}.` + (this.done.fail.length ? ` No pude con ${this.done.fail.length}: ${this.done.fail.map((f) => `${short(f.path)} (${f.why})`).join("; ")}` : ""))))
+        .child(`Deleted ${this.done.ok}.` + (this.done.fail.length ? ` Couldn't delete ${this.done.fail.length}: ${this.done.fail.map((f) => `${short(f.path)} (${f.why})`).join("; ")}` : ""))))
       .when(this.unknown.length > 0, (el) => el.child(div().pb(6).text_color(t.blocked)
-        .child(`Ojo: no sé en qué carpeta estaban estos dormidos: ${this.unknown.join(", ")}. Mirá que no esté entre los marcados.`)))
-      .child(head("Se pueden borrar", safe.length, t.foreground))
-      .children(safe.length ? safe.map((x) => line(x, true)) : [div().px(8).text_color(t.dim).child("nada: no hay worktrees huérfanos")])
-      .when(review.length > 0, (el) => el.child(head("Para revisar a mano (tienen algo que se perdería)", review.length, t.foreground)).children(review.map((x) => line(x, false))))
-      .when(inuse.length > 0, (el) => el.child(head("En uso o con agente dormido", inuse.length, t.dim)).children(inuse.map((x) => line(x, false))));
+        .child(`Heads up: I don't know which folder these dormant agents were in: ${this.unknown.join(", ")}. Make sure it's not among the checked ones.`)))
+      .child(head("Can be deleted", safe.length, t.foreground))
+      .children(safe.length ? safe.map((x) => line(x, true)) : [div().px(8).text_color(t.dim).child("nothing: no orphaned worktrees")])
+      .when(review.length > 0, (el) => el.child(head("Check by hand (something would be lost)", review.length, t.foreground)).children(review.map((x) => line(x, false))))
+      .when(inuse.length > 0, (el) => el.child(head("In use or with a dormant agent", inuse.length, t.dim)).children(inuse.map((x) => line(x, false))));
     const n = this.marked.size;
     return v_flex()
       .id("limpiar")
@@ -101,16 +101,16 @@ export default class Limpiar extends View {
       })
       .size_full().min_h(0).p(18).gap(10).bg(t.popover).text_size(13)
       .child(h_flex().items_center()
-        .child(div().flex_1().text_size(15).font_semibold().text_color(t.foreground).child("Limpiar worktrees"))
+        .child(div().flex_1().text_size(15).font_semibold().text_color(t.foreground).child("Clean up worktrees"))
         .child(div().text_size(11).text_color(t.dim).child("Esc")))
-      .child(div().text_size(12).text_color(t.muted).child(`Revisa ${(cfg().worktreeRoots ?? []).join(", ")}. Borra la carpeta con git worktree remove: la rama queda.`))
+      .child(div().text_size(12).text_color(t.muted).child(`Checks ${(cfg().worktreeRoots ?? []).join(", ")}. Deletes the folder with git worktree remove: the branch stays.`))
       .child(this.rows === null
         ? h_flex().flex_1().gap(8).items_center().justify_center().text_color(t.muted)
-          .child(svg("mods/workspace-chrome/spinner.svg").size(14).text_color(t.working).spin(900)).child("revisando worktrees, terminales y agentes dormidos…")
+          .child(svg("mods/workspace-chrome/spinner.svg").size(14).text_color(t.working).spin(900)).child("checking worktrees, terminals and dormant agents…")
         : this.error ? div().flex_1().text_color(t.blocked).child(this.error)
         : div().id("limpiar-list").flex_1().min_h(0).overflow_y_scrollbar().child(list))
       .child(h_flex().justify_end().gap(8).text_size(12)
-        .child(button("no", "Cerrar", t.raised, t.foreground, () => close()))
-        .child(button("yes", this.busy ? "Borrando…" : `Borrar ${n} (Enter)`, t.blocked ?? t.solid, "#ffffff", (_e, cx) => this.remove(cx), this.busy || !n || this.rows === null)));
+        .child(button("no", "Close", t.raised, t.foreground, () => close()))
+        .child(button("yes", this.busy ? "Deleting…" : `Delete ${n} (Enter)`, t.blocked ?? t.solid, "#ffffff", (_e, cx) => this.remove(cx), this.busy || !n || this.rows === null)));
   }
 }

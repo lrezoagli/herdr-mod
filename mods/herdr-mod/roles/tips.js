@@ -1,8 +1,8 @@
-// Cartelito abajo a la derecha: cuando hacés con el mouse algo que tiene
-// atajo, se lo recomienda. Los otros mods (roles tabs, spaces, agents) dejan
-// el pedido en shared("herdr-mod.tip") = { items: [{ action, text }], at }; aca se
-// busca la tecla de cada accion en keys() (si se rebindea, el tip sigue bien).
-// Una tecla que no es de Herdr (la de otro programa) va directo: { key, text }.
+// Small card at the bottom right: when you use the mouse for something that has a
+// shortcut, it suggests the shortcut. The other mods (tabs, spaces, agents roles) leave
+// the request in shared("herdr-mod.tip") = { items: [{ action, text }], at }; here each
+// action's key is looked up in keys() (if it's rebound, the tip stays correct).
+// A key that isn't Herdr's (another program's) goes straight in: { key, text }.
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { shared, keys, theme, window } from "herdr";
@@ -32,7 +32,7 @@ function pretty(action) {
 export default class Tips extends View {
   init(_props, cx) {
     this.visible = false;
-    // Solo para esconderlo a tiempo: redibuja cuando vence, no en cada tick.
+    // Only to hide it on time: redraws when it expires, not on every tick.
     cx.timer.every(500, (cx) => {
       const tip = shared("herdr-mod.tip");
       const live = Boolean(tip) && Date.now() - tip.at < SHOW_MS;
@@ -50,7 +50,7 @@ export default class Tips extends View {
     const kbd = (k) => div().px(6).py(1).rounded(5).border(1).border_color(t.input).bg(t.raised)
       .text_color(t.foreground).font_semibold().child(k);
     return v_flex().px(12).py(9).gap(5).text_size(12).text_color(t.muted)
-      .child(div().text_size(10.5).text_color(t.accent).font_semibold().child("ATAJO"))
+      .child(div().text_size(10.5).text_color(t.accent).font_semibold().child("SHORTCUT"))
       .children(items.map(i => h_flex().gap(8).items_center().child(kbd(i.key)).child(i.text)));
   }
 }

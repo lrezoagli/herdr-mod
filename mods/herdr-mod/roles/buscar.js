@@ -1,6 +1,6 @@
-// Cmd+K: buscar entre todos los agentes (de todos los proyectos). Se escribe y
-// filtra por proyecto, rama, agente (claude/codex) y estado; cada palabra tiene
-// que aparecer. Los que te esperan van primero. ↑↓ eligen, Enter va, Esc cierra.
+// Cmd+K: search all agents (across all projects). Typing filters by project,
+// branch, agent (claude/codex) and status; every word must match. Agents waiting
+// on you come first. ↑↓ select, Enter goes, Esc closes.
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input } from "gpui-base";
 import { agents, panes, run, theme, props, closeOverlay, shared } from "herdr";
@@ -9,7 +9,7 @@ import { scoped } from "../store.js";
 import { cfg, prefixRe, loadConfig } from "../config.js";
 const localStorage = scoped("buscar");
 
-const WORD = { blocked: "pregunta", done: "terminó", working: "trabajando", idle: "quieto" };
+const WORD = { blocked: "asking", done: "done", working: "working", idle: "idle" };
 const RANK = { blocked: 0, done: 1, working: 2, idle: 3 };
 const short = (b) => (b ?? "").replace(prefixRe(), "");
 
@@ -17,7 +17,7 @@ export default class Buscar extends View {
   init(_props, cx) {
     this.text = "";
     this.at = 0;
-    this.input = InputState.new({ value: "", placeholder: "buscar agente: proyecto, rama, claude/codex, estado…" });
+    this.input = InputState.new({ value: "", placeholder: "search agents: project, branch, claude/codex, status…" });
     this.input.on("change", (_e, cx) => { this.text = this.input.value(); this.at = 0; cx.notify(); });
     this.input.on("submit", () => this.go(this.shown()[this.at]));
     this.input.focus();
@@ -76,10 +76,10 @@ export default class Buscar extends View {
         }
       })
       .child(h_flex().px(4).items_center()
-        .child(div().flex_1().text_size(22).font_semibold().text_color(t.foreground).child("Buscar agente"))
-        .child(div().text_size(13).text_color(t.dim).child(`${list.length} · ↑↓ elegir · ↵ ir · esc cerrar`)))
+        .child(div().flex_1().text_size(22).font_semibold().text_color(t.foreground).child("Search agents"))
+        .child(div().text_size(13).text_color(t.dim).child(`${list.length} · ↑↓ select · ↵ go · esc close`)))
       .child(Input.new(this.input).h(44).px(14).items_center().rounded(9).border(1).border_color(t.accent).bg(t.background).text_size(17).text_color(t.foreground))
       .child(v_flex().id("b-list").flex_1().min_h(0).overflow_y_scrollbar().children(list.map(row))
-        .when(list.length === 0, (el) => el.child(div().p(16).text_size(18).text_color(t.dim).child("Ningún agente coincide."))));
+        .when(list.length === 0, (el) => el.child(div().p(16).text_size(18).text_color(t.dim).child("No matching agents."))));
   }
 }

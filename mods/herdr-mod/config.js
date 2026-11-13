@@ -1,7 +1,7 @@
-// Configuración: config.json (lo de todos) y config.local.json (lo tuyo, fuera de git).
-//   branchPrefix: prefijo de tus ramas ("usuario/"): se saca al mostrar y se usa en IS-<n>.
-//   projects: carpetas donde buscar clones de tus repos (para abrir reviews y PRs).
-//   worktreeRoots: carpetas con worktrees (<carpeta>/<repo>/<nombre>) que revisa "Limpiar worktrees".
+// Config: config.json (shared) and config.local.json (yours, kept out of git).
+//   branchPrefix: prefix of your branches ("user/"): stripped for display and used in IS-<n>.
+//   projects: folders where clones of your repos live (to open reviews and PRs).
+//   worktreeRoots: folders with worktrees (<folder>/<repo>/<name>) checked by "Clean up worktrees".
 import { exec, home } from "herdr";
 
 const DEFAULTS = { branchPrefix: "", projects: ["~/Projects"], worktreeRoots: ["~/.herdr/worktrees"] };
@@ -13,10 +13,10 @@ export const dir = () => `${home()}/.config/herdr-app/mods/herdr-mod`;
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export const prefixRe = () => (CFG.branchPrefix ? new RegExp(`^${esc(CFG.branchPrefix)}`) : /^(?!)/);
 
-// Para esperar la config antes de usarla (después de loadConfig, que main.js llama siempre).
+// Await the config before using it (after loadConfig, which main.js always calls).
 export const configReady = () => loading ?? Promise.resolve();
 
-// Una vez por versión del mod; cada copia la pide y se redibuja cuando está.
+// Once per mod version; each instance requests it and re-renders when it's ready.
 export function loadConfig(cx) {
   loading ??= (async () => {
     let next = { ...DEFAULTS };

@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-"""Mis PRs abiertos y los que me pidieron revisar, en todos los repos, con una
-sola consulta a GitHub (gh api graphql). Para el panel GitHub, ⌘J y la barra.
+"""My open PRs and the ones I was asked to review, across all repos, with a
+single GitHub query (gh api graphql). For the GitHub panel, ⌘J and the bar.
 
-Mis PRs: si "te toca" (needs) y por qué:
-- changes: me pidieron cambios (reviewDecision).
-- threads: hilos sin resolver cuyo último comentario es de otra persona (humana).
-  Si el último es mío, le toca al otro: no cuenta. Se apaga solo al responder.
-- comments: comentarios generales de personas después de lo último mío (comentario,
-  review o commit).
-- ci: falló un check. conflict: tiene conflictos.
-- bots: lo mismo de bots (CodeRabbit, Copilot...), aparte: no cuenta para "te toca".
+My PRs: whether it's "your turn" (needs) and why:
+- changes: changes were requested (reviewDecision).
+- threads: unresolved threads whose last comment is from someone else (a human).
+  If the last one is mine, it's the other person's turn: doesn't count. Clears itself once I reply.
+- comments: general comments from people after my latest activity (comment,
+  review or commit).
+- ci: a check failed. conflict: it has conflicts.
+- bots: the same from bots (CodeRabbit, Copilot...), kept apart: doesn't count toward "your turn".
 
-Reviews: los PRs con review pedida a mí (o a un equipo mío), desde cuándo, y si
-me la volvieron a pedir después de una review mía (status "asked"). Y todos los
-abiertos que ya revisé sin que me la vuelvan a pedir: "answered" si después de mi
-review hubo commits nuevos (si no lo había aprobado), comentarios o respuestas en mis
-hilos de otra persona; "reviewed" si no. my_state: lo último que dejé (COMMENTED,
-APPROVED, CHANGES_REQUESTED). Solo asked y answered piden algo (avisos, contadores).
+Reviews: PRs with a review requested from me (or from a team of mine), since when, and whether
+it was requested again after a review of mine (status "asked"). Plus every open
+PR I already reviewed without being asked again: "answered" if after my
+review there were new commits (unless I had approved it), comments or replies in my
+threads from someone else; "reviewed" otherwise. my_state: the last thing I left (COMMENTED,
+APPROVED, CHANGES_REQUESTED). Only asked and answered call for action (notifications, counters).
 
-clones: los repos clonados en las carpetas que recibe (config projects; ~/Projects si no), hasta 3 niveles, {"dueño/repo": carpeta},
-para abrir el agente aunque el repo no esté abierto como proyecto en Herdr.
+clones: repos cloned in the folders it receives (config projects; ~/Projects otherwise), up to 3 levels deep, {"owner/repo": folder},
+to open the agent even if the repo isn't open as a project in Herdr.
 
-Imprime {"me", "mine": [...], "reviews": [...], "clones": {...}} o {"error": "..."}.
+Prints {"me", "mine": [...], "reviews": [...], "clones": {...}} or {"error": "..."}.
 """
 import configparser
 import json
@@ -71,7 +71,7 @@ BOTS = ("coderabbit", "copilot", "github-actions", "dependabot", "renovate", "so
 
 def is_bot(author):
     if not author:
-        return True  # cuenta borrada ("ghost")
+        return True  # deleted account ("ghost")
     login = (author.get("login") or "").lower()
     return author.get("__typename") == "Bot" or login.endswith("[bot]") or any(b in login for b in BOTS)
 
@@ -97,7 +97,7 @@ def clones_in(root):
             m = re.search(r"github\.com[:/](.+?)(?:\.git)?/?$", url)
             if m:
                 out.setdefault(m.group(1), dirpath)
-            dirnames[:] = []  # no busca repos adentro de otro
+            dirnames[:] = []  # don't look for repos inside another one
             continue
         dirnames[:] = [d for d in dirnames if not d.startswith(".") and d != "node_modules"] if depth < 2 else []
     return out
@@ -113,12 +113,12 @@ def main():
 
     mine = []
     for pr in (d.get("mine") or {}).get("nodes") or []:
-        if not pr or pr.get("state") != "OPEN":  # el buscador tarda en enterarse de un merge
+        if not pr or pr.get("state") != "OPEN":  # search takes a while to notice a merge
             continue
         commit = ((pr.get("commits") or {}).get("nodes") or [{}])[-1].get("commit") or {}
         reviews = (pr.get("latestReviews") or {}).get("nodes") or []
         comments = (pr.get("comments") or {}).get("nodes") or []
-        # Lo último que hice yo: commit, comentario o review.
+        # My latest activity: commit, comment or review.
         mine_at = max([commit.get("committedDate") or "", pr.get("createdAt") or ""]
                       + [c["createdAt"] for c in comments if (c.get("author") or {}).get("login") == me]
                       + [x["submittedAt"] or "" for x in reviews if (x.get("author") or {}).get("login") == me])
@@ -146,7 +146,7 @@ def main():
             else:
                 new_comments += 1
                 last_url = c.get("url") or last_url
-        # Reviews de personas con comentario nuevo después de lo mío (sin hilo).
+        # Reviews from people with a new comment after my latest activity (no thread).
         human_reviews = [x for x in reviews if not is_bot(x.get("author")) and (x.get("author") or {}).get("login") != me]
         waiting = [n.get("requestedReviewer") or {} for n in (pr.get("reviewRequests") or {}).get("nodes") or []]
         ci = (commit.get("statusCheckRollup") or {}).get("state")
@@ -166,14 +166,14 @@ def main():
             "reviewed_by": sorted({(x.get("author") or {}).get("login") for x in human_reviews} - {None}),
             "mine_at": mine_at,
         }
-        # Lo que pide que hagas algo con los comentarios (para avisos) y lo que te toca en general.
+        # What asks you to act on comments (for notifications) and what is your turn in general.
         item["talk"] = changes or threads > 0 or new_comments > 0
         item["needs"] = item["talk"] or item["ci"] == "fail" or conflict
         mine.append(item)
 
     out_reviews = []
     for pr in (d.get("reviews") or {}).get("nodes") or []:
-        if not pr or pr.get("state") != "OPEN":  # el buscador tarda en enterarse de un merge
+        if not pr or pr.get("state") != "OPEN":  # search takes a while to notice a merge
             continue
         events = (pr.get("timelineItems") or {}).get("nodes") or []
         asked = [e["createdAt"] for e in events if ((e.get("requestedReviewer") or {}).get("login") in (me, None))]
@@ -189,7 +189,7 @@ def main():
             "my_state": max(((x["submittedAt"], x["state"]) for x in (pr.get("latestReviews") or {}).get("nodes") or [] if (x.get("author") or {}).get("login") == me and x.get("submittedAt")), default=(None, None))[1],
         })
     for pr in (d.get("followup") or {}).get("nodes") or []:
-        if not pr or pr.get("state") != "OPEN":  # el buscador tarda en enterarse de un merge
+        if not pr or pr.get("state") != "OPEN":  # search takes a while to notice a merge
             continue
         mine_rv = [x for x in (pr.get("latestReviews") or {}).get("nodes") or [] if (x.get("author") or {}).get("login") == me and x.get("submittedAt")]
         if not mine_rv:
@@ -207,11 +207,11 @@ def main():
                 replies.append(last)
         why = []
         if replies:
-            why.append(f"{len(replies)} respuesta{'s' if len(replies) > 1 else ''} en tus hilos")
+            why.append(f"{len(replies)} repl{'ies' if len(replies) > 1 else 'y'} in your threads")
         if comments:
-            why.append(f"{len(comments)} comentario{'s' if len(comments) > 1 else ''}")
+            why.append(f"{len(comments)} comment{'s' if len(comments) > 1 else ''}")
         if new_commits:
-            why.append("commits nuevos")
+            why.append("new commits")
         latest = max(comments + replies, key=lambda c: c["createdAt"], default=None)
         out_reviews.append({
             "repo": pr["repository"]["nameWithOwner"],

@@ -10,11 +10,11 @@ import { scoped } from "../store.js";
 import { cfg, prefixRe, loadConfig } from "../config.js";
 const localStorage = scoped("spaces");
 
-// tips de atajos.
+// Shortcut tips.
 const tip = (...items) => setShared("herdr-mod.tip", { items: items.map(([action, text]) => ({ action, text })), at: Date.now() });
 const spaceTip = (id) => {
   const i = spaces().findIndex(s => s.id === id);
-  tip(i >= 0 && i < 9 ? [`space.select:${i + 1}`, "ir a este proyecto"] : ["space.next", "proyecto siguiente"], ["herdr-mod.waiting", "ver quién te espera"]);
+  tip(i >= 0 && i < 9 ? [`space.select:${i + 1}`, "go to this project"] : ["space.next", "next project"], ["herdr-mod.waiting", "see who's waiting on you"]);
 };
 
 function find(node, id) {
@@ -261,7 +261,7 @@ export default class Spaces extends View {
         .when(!collapsed, el => el.child(div().flex_1().truncate().child(m ?? "This computer"))
           .when(!connected, el => el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))))
           .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().px(4).rounded(4).hover(s => s.bg(t.hover).text_color(t.foreground))
-            .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", m ? { machine: m } : {}); tip(["space.new", "proyecto nuevo"]); }).child("+")))
+            .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", m ? { machine: m } : {}); tip(["space.new", "new project"]); }).child("+")))
           .child(div().size(6).rounded(3).flex_none().bg(connected ? t.ansi2 : t.dim))
           .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none()));
       const empty = h_flex().id(`machine-new-${m ?? "local"}`).h(28).flex_none().px(8).gap(7).items_center().rounded(7)

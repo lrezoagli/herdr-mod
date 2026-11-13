@@ -1,9 +1,9 @@
-// Panel Equipo (al lado de Files, Changes y GitHub; ⌘⇧E): los equipos de Claude
-// (agent teams) del proyecto activo. Una tarjeta por compañero: su tarea, que esta
-// haciendo, sus ultimas acciones y, cuando termina, lo que contesto. Primero el
-// equipo del agente que estoy mirando.
-// Los datos los junta el rol agents (teams.py cada 5 s) y los deja en
-// shared("herdr-mod.teams") = { "<terminal del lead>": [compañeros] }.
+// Team panel (next to Files, Changes and GitHub; ⌘⇧E): the active project's Claude
+// agent teams. One card per teammate: its task, what it's doing, its latest actions
+// and, when it finishes, what it answered. The team of the agent I'm looking at
+// comes first.
+// The agents role collects the data (teams.py every 5 s) and puts it in
+// shared("herdr-mod.teams") = { "<lead terminal>": [teammates] }.
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { shared, spaces, panes, terminals, focused, run, theme } from "herdr";
@@ -20,7 +20,7 @@ const ago = (ms) => {
   return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m` : `${Math.floor(s / 3600)}h`;
 };
 
-// El agente principal, como lo nombra la lista de agentes: su rama sin prefijo.
+// The lead agent, named as the agent list names it: its branch without the prefix.
 function leadLabel(addr) {
   const p = panes().find((x) => x.terminal === addr);
   return shared("herdr-mod.names")?.[addr] || p?.branch?.replace(prefixRe(), "") || terminals().find((k) => k.address === addr)?.program?.name || addr;
@@ -28,9 +28,9 @@ function leadLabel(addr) {
 
 export default class Equipo extends View {
   init(_props, cx) {
-    this.open = new Set(); // resultados desplegados: `${lead}:${name}`
+    this.open = new Set(); // expanded results: `${lead}:${name}`
     this.last = "";
-    // Los datos cambian en shared; el tiempo transcurrido, cada tanto.
+    // Data changes in shared; elapsed time, every so often.
     let tick = 0;
     cx.timer.every(1000, (cx) => {
       const now = JSON.stringify(shared("herdr-mod.teams") ?? {});
@@ -54,7 +54,7 @@ export default class Equipo extends View {
 
     const status = (m) => m.status === "working"
       ? svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)
-      : div().flex_none().text_size(11).text_color(t.done).child("terminó");
+      : div().flex_none().text_size(11).text_color(t.done).child("done");
 
     const card = (lead, m) => {
       const key = `${lead}:${m.name}`;
@@ -69,7 +69,7 @@ export default class Equipo extends View {
           .child(status(m)))
         .child(div().text_size(12).text_color(t.muted).child(m.task))
         .when(m.status === "working", (el) => el.child(h_flex().gap(6).items_center()
-          .child(div().flex_none().text_size(11).text_color(t.working).child("ahora"))
+          .child(div().flex_none().text_size(11).text_color(t.working).child("now"))
           .child(div().min_w(0).truncate().text_size(12.5).text_color(t.foreground).child(m.activity))))
         .when((m.recent ?? []).length > (m.status === "working" ? 1 : 0), (el) => el.child(v_flex().gap(2)
           .children(m.recent.slice(m.status === "working" ? 1 : 0, 4).map((r, i) => h_flex().gap(6).items_center()
@@ -79,7 +79,7 @@ export default class Equipo extends View {
         .when(m.status !== "working" && Boolean(m.result), (el) => el.child(v_flex().id(`res-${key}`).mt(2).p(8).gap(4).rounded(6).bg(t.raised).cursor_pointer()
           .hover((s) => s.bg(t.hover))
           .on_click((_e, cx) => { unfolded ? this.open.delete(key) : this.open.add(key); cx.notify(); })
-          .child(div().text_size(10.5).font_semibold().text_color(t.accent).child(unfolded ? "CONTESTÓ ▾" : "CONTESTÓ ▸"))
+          .child(div().text_size(10.5).font_semibold().text_color(t.accent).child(unfolded ? "ANSWERED ▾" : "ANSWERED ▸"))
           .child(div().text_size(12).text_color(t.foreground).child(unfolded ? m.result : m.said || m.result))));
     };
 
@@ -92,17 +92,17 @@ export default class Equipo extends View {
           .on_click(() => run("pane.focus", { terminal: lead }))
           .child(div().flex_none().font_semibold().text_size(13.5).text_color(lead === mine ? t.foreground : t.muted).child(leadLabel(lead)))
           .child(div().flex_1().text_size(11.75).text_color(t.dim)
-            .child(`${mates.length} ${mates.length === 1 ? "compañero" : "compañeros"} · ${busy ? `${busy} trabajando` : "todos terminaron"}`)))
+            .child(`${mates.length} ${mates.length === 1 ? "teammate" : "teammates"} · ${busy ? `${busy} working` : "all done"}`)))
         .children(mates.map((m) => card(lead, m)));
     };
 
     return v_flex().size_full().bg(t.chrome).text_color(t.foreground).text_size(12.75)
       .child(h_flex().h(38).px(12).gap(8).items_center().border_b(1).border_color(t.border).flex_none()
-        .child(div().flex_1().text_size(13.5).font_semibold().child("Equipo"))
+        .child(div().flex_1().text_size(13.5).font_semibold().child("Team"))
         .child(div().text_size(11.75).text_color(t.dim).child(space?.name ?? "")))
       .child(v_flex().id("teams").flex_1().min_h(0).overflow_y_scrollbar()
         .children(leads.map(team))
         .when(leads.length === 0, (el) => el.child(div().p(14).text_size(12.75).text_color(t.dim)
-          .child("No hay equipos en este proyecto. Cuando un Claude arma un equipo (las skills -team, o pidiéndoselo), sus compañeros aparecen acá: qué hacen y qué contestan."))));
+          .child("No teams in this project. When a Claude sets up a team (the -team skills, or by asking it), its teammates show up here: what they're doing and what they answer."))));
   }
 }

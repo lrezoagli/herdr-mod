@@ -1,7 +1,7 @@
-// Cmd+J: quien me esta esperando (dialogo grande, centrado). blocked (pregunta / pide permiso),
-// los que esperan tu go (etapas de una extensión) y los avisos (revisiones largas, PRs con comentarios).
-// primero, despues done (termino sin que lo mire); dentro de cada grupo, el que
-// espera hace mas tiempo arriba. 1-9 o Enter van a ese agente; Esc cierra.
+// Cmd+J: who is waiting on me (large centered dialog). blocked (asking / needs permission)
+// first, then done (finished without me looking), plus those waiting for your go (stages of
+// an extension) and the alerts (long reviews, PRs with comments). Within each group, the
+// longest-waiting on top. 1-9 or Enter jump to that agent; Esc closes.
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { agents, terminals, panes, run, theme, props, closeOverlay, shared, setShared, exec } from "herdr";
@@ -10,17 +10,17 @@ import { scoped } from "../store.js";
 import { cfg, prefixRe, loadConfig } from "../config.js";
 const localStorage = scoped("waiting");
 
-// /pr-review y /pr-fix son skills (si las tenés). Sin ellas (shared "herdr-mod.skills", lo
-// mira el rol agents), el agente recibe un pedido común que hace lo mismo a mano.
+// /pr-review and /pr-fix are skills (if you have them). Without them (shared "herdr-mod.skills",
+// checked by the agents role), the agent gets a plain request that does the same by hand.
 const hasSkill = (s) => Boolean(shared("herdr-mod.skills")?.[s]);
 const prAsk = (kind, n, repo) => kind === "fix"
-  ? (hasSkill("pr-fix") ? `/pr-fix ${n}` : `Atendé los comentarios de review del PR #${n}${repo ? ` de ${repo}` : ""}: leelos con gh, validá cada uno contra el código, proponé el cambio y la respuesta, y esperá mi ok antes de commitear, pushear o contestar en GitHub.`)
-  : (hasSkill("pr-review") ? `/pr-review ${n}` : `Revisá el PR #${n}${repo ? ` de ${repo}` : ""}: resumen, problemas (archivo:línea, severidad, cómo arreglarlo) y los comentarios que dejarías. No publiques nada en GitHub sin mi ok.`);
+  ? (hasSkill("pr-fix") ? `/pr-fix ${n}` : `Address the review comments on PR #${n}${repo ? ` in ${repo}` : ""}: read them with gh, check each one against the code, propose the change and the reply, and wait for my ok before committing, pushing or replying on GitHub.`)
+  : (hasSkill("pr-review") ? `/pr-review ${n}` : `Review PR #${n}${repo ? ` in ${repo}` : ""}: summary, issues (file:line, severity, how to fix) and the comments you would leave. Don't publish anything on GitHub without my ok.`);
 const prLabel = (kind) => kind === "fix" ? (hasSkill("pr-fix") ? "/pr-fix" : "fix") : (hasSkill("pr-review") ? "/pr-review" : "review");
 
 const RANK = { blocked: 0, done: 1 };
 
-// También los que terminaron una etapa y esperan tu go (aunque ya los hayas mirado).
+// Also those that finished a stage and wait for your go (even if you already looked).
 export function waiting() {
   const since = new Map(terminals().map(k => [k.address, k.status_ms ?? 0]));
   const lk = shared("herdr-mod.estado") ?? {};
@@ -58,16 +58,16 @@ export default class Waiting extends View {
     const btn = (id, label, color, action) => div().id(id).px(10).h(26).rounded(6).flex().items_center().cursor_pointer()
       .text_size(13).font_semibold().bg(`${color}33`).text_color(color).hover(s => s.bg(`${color}55`))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click((_e, cx) => { cx.stop_propagation(); action(); cx.notify(); }).child(label);
-    // La etapa y si espera go, abajo de la rama.
+    // The stage, and whether it awaits go, under the branch.
     const loopLine = (a) => {
       const st = lk[a.address];
       if (!st) return null;
       if (st.missing) return div().text_size(12.5).text_color(t.muted).child(st.missing);
-      const bits = [st.stage ? `${st.size ? `${st.size} · ` : ""}/${st.stage}` : null, st.next ? `espera go → ${st.next}` : st.activity].filter(Boolean);
+      const bits = [st.stage ? `${st.size ? `${st.size} · ` : ""}/${st.stage}` : null, st.next ? `awaiting go → ${st.next}` : st.activity].filter(Boolean);
       return bits.length ? div().truncate().text_size(12.5).text_color(st.next ? t.accent : t.muted).child(bits.join(" · ")) : null;
     };
-    // Si arma un equipo de Claude: como va cada compañero.
-    const team = (a) => (teams[a.address] ?? []).map(m => `${m.name} ${m.status === "working" ? "trabajando" : "✓"}`).join(" · ");
+    // If it runs a Claude team: how each teammate is doing.
+    const team = (a) => (teams[a.address] ?? []).map(m => `${m.name} ${m.status === "working" ? "working" : "✓"}`).join(" · ");
     const row = (a, i) => {
       const on = i === this.at;
       const icon = a.program?.icon ? (a.program.tint ? svg(a.program.icon).size(22).text_color(t.foreground) : image(a.program.icon).size(22)) : div().w(22);
@@ -80,11 +80,11 @@ export default class Waiting extends View {
         .child(v_flex().flex_1().min_w(0)
           .child(div().truncate().text_size(13).text_color(t.dim).child(a.space_name))
           .child(div().truncate().font_semibold().text_color(t.foreground).child(shared("herdr-mod.names")?.[a.address] || (a.branch ? a.branch.replace(prefixRe(), "") : a.program?.name ?? "")))
-          .when(Boolean(team(a)), el => el.child(div().truncate().text_size(12.5).text_color(t.muted).child(`equipo: ${team(a)}`)))
+          .when(Boolean(team(a)), el => el.child(div().truncate().text_size(12.5).text_color(t.muted).child(`team: ${team(a)}`)))
           .when(Boolean(loopLine(a)), el => el.child(loopLine(a))))
         .when(Boolean(lk[a.address]?.next), el => el.child(btn(`go-${a.address}`, "go", t.accent, () => exec("hc", ["send", a.address, "go"]))))
         .child(div().w(110).text_right().font_semibold().text_color(a.status === "blocked" ? t.blocked : a.status === "done" ? t.done : t.accent)
-          .child(a.status === "blocked" ? "pregunta" : a.status === "done" ? "terminó" : "espera go"))
+          .child(a.status === "blocked" ? "asking" : a.status === "done" ? "done" : "awaiting go"))
         .child(div().w(48).text_right().text_color(t.dim).child(ago(a.since)));
     };
     return v_flex().id("waiting").track_focus(this.handle).size_full().p(18).gap(10).bg(t.popover).text_size(16)
@@ -97,24 +97,24 @@ export default class Waiting extends View {
           cx.notify();
         }
       })
-      .child(h_flex().px(16).pt(6).pb(6).items_center().child(div().flex_1().text_size(22).font_semibold().text_color(t.foreground).child(`Esperándote (${list.length})`))
-        .child(div().text_size(13).text_color(t.dim).child("1-9 / ↵ ir · ↑↓ elegir · esc cerrar")))
+      .child(h_flex().px(16).pt(6).pb(6).items_center().child(div().flex_1().text_size(22).font_semibold().text_color(t.foreground).child(`Waiting on you (${list.length})`))
+        .child(div().text_size(13).text_color(t.dim).child("1-9 / ↵ go to · ↑↓ select · esc close")))
       .child(v_flex().id("w-list").flex_1().min_h(0).overflow_y_scroll().children(list.map(row))
-        .when(list.length === 0 && alerts.length === 0, el => el.child(div().p(16).text_size(18).text_color(t.dim).child("Nadie te espera.")))
-        // Avisos: revisiones que tardan (¿colgadas?) y PRs míos con comentarios nuevos.
+        .when(list.length === 0 && alerts.length === 0, el => el.child(div().p(16).text_size(18).text_color(t.dim).child("Nobody is waiting on you.")))
+        // Alerts: reviews taking long (stuck?) and my PRs with new comments.
         .when(alerts.length > 0, el => el
-          .child(div().px(16).pt(14).pb(6).text_size(13).font_semibold().text_color(t.muted).child("AVISOS"))
+          .child(div().px(16).pt(14).pb(6).text_size(13).font_semibold().text_color(t.muted).child("ALERTS"))
           .children(alerts.map(al => h_flex().id(`al-${al.kind}-${al.key ?? al.addr}`).min_h(48).px(16).gap(12).items_center().rounded(9)
             .child(div().size(11).rounded(6).flex_none().bg(al.kind === "review" ? (al.hung ? t.blocked : t.ansi3) : al.changes ? t.blocked : t.ansi5))
             .child(v_flex().flex_1().min_w(0)
               .child(h_flex().gap(8).min_w(0).child(div().flex_none().font_semibold().text_color(t.foreground).child(al.who))
                 .when(Boolean(al.title), el => el.child(div().min_w(0).truncate().text_size(13).text_color(t.dim).child(al.title))))
               .child(div().truncate().text_size(13).text_color(t.muted).child(al.kind === "review"
-                ? `la revisión de ${al.tool} lleva ${Math.floor(al.secs / 60)} min${al.hung ? ": parece colgada" : ""}`
+                ? `${al.tool} review running for ${Math.floor(al.secs / 60)} min${al.hung ? ": looks stuck" : ""}`
                 : al.what)))
             .when(al.kind === "review", el => el
-              .child(btn(`go-to-${al.addr}`, "ir", t.muted, () => this.go({ address: al.addr })))
-              .child(btn(`cut-${al.pid}`, "cortar", t.blocked, () => exec("kill", [String(al.pid)]))))
+              .child(btn(`go-to-${al.addr}`, "go to", t.muted, () => this.go({ address: al.addr })))
+              .child(btn(`cut-${al.pid}`, "kill", t.blocked, () => exec("kill", [String(al.pid)]))))
             .when(al.kind === "pr" || al.kind === "rr", el => el
               .when(Boolean(al.addr), el => el.child(btn(`fix-${al.key}`, prLabel("fix"), t.ansi5, () => {
                 exec("hc", ["send", al.addr, prAsk("fix", al.number, al.repo)]);
@@ -125,7 +125,7 @@ export default class Waiting extends View {
                 run("layout.select", { stack: "panel-body", child: "github" }); run("layout.show", { id: "panel" });
                 closeOverlay(props().overlay);
               })))
-              .child(btn(`open-${al.key}`, "abrir", t.muted, () => exec("open", [al.url])))
+              .child(btn(`open-${al.key}`, "open", t.muted, () => exec("open", [al.url])))
               .child(btn(`dismiss-${al.key}`, "✕", t.muted, () => setShared("herdr-mod.alerts.dismiss", { key: al.key, at: Date.now() }))))))));
   }
 }

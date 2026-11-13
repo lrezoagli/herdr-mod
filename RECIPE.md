@@ -1,197 +1,202 @@
 # herdr-mod
 
-Un Herdr para trabajar con muchos agentes (Claude Code y Codex) en varios repos a la vez,
-hecho con **un solo mod** (`mods/herdr-mod`) que se usa en cada lugar de la ventana con un
-rol distinto. A la izquierda, los proyectos y los agentes como árbol de ramas. Arriba,
-botones para abrir agentes en worktrees. A la derecha, los paneles GitHub (issues, mis PRs,
-reviews) y Equipo. Abajo, el uso de Claude y Codex y lo que te está esperando. Los agentes
-que no usás hace 2 horas se duermen solos y vuelven donde estaban cuando los mirás. La
-interfaz está en español.
+A Herdr for working with many agents (Claude Code and Codex) across several repos at once,
+built from **a single mod** (`mods/herdr-mod`) that is placed in each spot of the window with
+a different role. On the left, projects and agents as a branch tree. At the top, buttons to
+open agents in worktrees. On the right, the GitHub panel (issues, my PRs, reviews) and the
+Team panel. At the bottom, Claude and Codex usage and whatever is waiting for you. Agents you
+haven't used in 2 hours go to sleep on their own and come back where they were when you look
+at them. The interface is in English.
+
+![herdr-mod](preview.png)
 
 ## What you see
 
-- **Barra izquierda (rol `spaces` arriba, rol `agents` abajo).**
-  - Spaces con avatar de color. Los worktrees van colgados de su repo. Al lado, la rama
-    y ↑/↓ contra el remoto. Se reordenan arrastrando.
-  - Agents: un título por proyecto y los agentes como árbol de ramas. Cada rama cuelga
-    de su base (`branch.<rama>.herdrBase`), los pedidos (`herdrPedido`) son ramas en gris
-    sin agente, y los sub-agentes de `hc` van un nivel adentro. Cada fila tiene:
-    - el ícono del programa;
-    - el nombre: el que le pusiste, si no el de su worktree, si no la rama (sin
+- **Left sidebar (role `spaces` on top, role `agents` below).**
+  - Spaces with a colored avatar. Worktrees hang under their repo. Next to each, the branch
+    and ↑/↓ against the remote. Reorder them by dragging.
+  - Agents: a heading per project and the agents as a branch tree. Each branch hangs from
+    its base (`branch.<branch>.herdrBase`), epics (`herdrPedido`) are gray branches with no
+    agent, and `hc` sub-agents sit one level in. Each row has:
+    - the program's icon;
+    - the name: the one you gave it, otherwise its worktree's, otherwise the branch (without
       `branchPrefix`);
-    - la rama actual, chica, si es otra;
-    - el tiempo desde su último cambio;
-    - el estado: girando, "Needs you", punto de terminado o "zz" si está dormido.
-- **Barra de pestañas (rol `tabs`).**
-  - Las pestañas del proyecto.
-  - A la derecha: Claude, Codex, Files, Changes, GitHub (con número de pendientes) y
-    Equipo.
-- **Panel GitHub (rol `github`).** Tres secciones:
-  - **Issues** del repo del proyecto, tuyos o todos, con botones Claude / Codex / Pedido.
-  - **Mis PRs** de todos tus repos. Arriba, en un recuadro, los del proyecto actual;
-    después, agrupados por repo. Chips: cambios pedidos, hilos sin responder,
-    comentarios nuevos, CI ✗, conflicto, aprobado, esperando a…, bots.
-  - **Reviews.** Todos los PRs abiertos donde sos revisor, en cuatro grupos:
-    - Te pidieron review.
-    - Te respondieron: después de tu review hubo commits o comentarios.
-    - Ya revisaste.
-    - Borradores.
+    - the current branch, small, if it's a different one;
+    - the time since its last change;
+    - the status: spinner, "Needs you", a done dot, or "zz" if it's asleep.
+- **Tab bar (role `tabs`).**
+  - The project's tabs.
+  - On the right: Claude, Codex, Files and GitHub (with the number of pending items). The
+    Team panel has no button: toggle it with ⌘⇧E (`herdr-mod.equipo`). The Changes panel
+    (Herdr's `changes` mod) is still in the layout, just without a button.
+- **GitHub panel (role `github`).** Three sections:
+  - **Issues** of the project's repo, yours or all, with Claude / Codex / Epic buttons.
+  - **My PRs** across all your repos. At the top, in a box, the current project's; then
+    grouped by repo. Chips: changes requested, unanswered threads, new comments, CI ✗,
+    conflict, approved, waiting on…, bots.
+  - **Reviews.** Every open PR where you are a reviewer, in four groups:
+    - Review requested.
+    - They answered: there were commits or comments after your review.
+    - Already reviewed.
+    - Drafts.
 
-    Cada fila dice qué dejaste (comentaste, aprobaste, pediste cambios) y tiene dos
-    botones, review cc y review cx.
-- **Panel Equipo (rol `equipo`).** Los equipos de Claude (agent teams) del proyecto, con
-  una tarjeta por compañero.
-- **Footer (rol `uso`, props `bar: true`).** De izquierda a derecha:
-  - el uso de Claude y Codex (5 h y semana);
-  - CPU y RAM de la máquina;
-  - el proyecto › agente enfocado;
-  - "N PRs con comentarios" y "N reviews pendientes", que abren la sección del panel
-    GitHub.
-- **Diálogos.**
-  - ⌘J "Esperándote" (rol `waiting`): agentes que esperan y avisos de PR.
-  - ⌘K buscar agentes (rol `buscar`).
-  - "¿Cerrar…?" (rol `close`).
-  - Agente en un worktree nuevo (rol `worktree`).
-- **Encabezado de cada panel (rol `pane`).** Su ✕ pregunta antes de cerrar un agente.
-- **Tips (rol `tips`).** Un cartelito abajo a la derecha con el atajo de lo que acabás de
-  hacer con el mouse.
+    Each row says what you left (commented, approved, requested changes) and has two
+    buttons, review cc and review cx.
+- **Team panel (role `equipo`).** The project's Claude teams (agent teams), with one card
+  per teammate.
+- **Footer (role `uso`, props `bar: true`).** From left to right:
+  - Claude and Codex usage (5 h and week);
+  - the machine's CPU and RAM;
+  - the focused project › agent;
+  - "N PRs with comments" and "N pending reviews", which open that section of the GitHub
+    panel.
+- **Dialogs.**
+  - ⌘J "Waiting on you" (role `waiting`): agents that are waiting and PR alerts.
+  - ⌘K search agents (role `buscar`).
+  - "Close…?" (role `close`).
+  - Agent in a new worktree (role `worktree`).
+- **Header of each pane (role `pane`).** Its ✕ asks before closing an agent.
+- **Tips (role `tips`).** A small toast in the bottom right with the shortcut for what you
+  just did with the mouse.
 
 ## How it behaves
 
-- **Estados.** Working = girando; blocked = "Needs you"; done = punto hasta que lo mirás;
-  idle = gris; dormido = "zz".
-- **Dormir.** Un Claude o Codex sin uso hace 2 h sale con `/exit` o `/quit`. No se duermen:
-  - los fijados (📌);
-  - los que tienen equipo o sub-agentes vivos;
-  - los que corren una revisión.
+- **States.** Working = spinner; blocked = "Needs you"; done = a dot until you look at it;
+  idle = gray; asleep = "zz".
+- **Sleep.** A Claude or Codex unused for 2 h exits with `/exit` or `/quit`. These don't
+  sleep:
+  - pinned ones (📌);
+  - ones with a team or live sub-agents;
+  - ones running a review.
 
-  Clic o foco lo despierta con `--resume <sesión>` o `codex resume <id>` y los mismos
-  flags. Si no tenía conversación, arranca de cero.
-- **Reinicios.** El rol `agents` guarda qué agente corre en cada terminal y en qué herdr-core
-  (pid de `hc server status`). Si el core cambió, los que estaban andando y ahora son una
-  shell pasan a dormidos, con un aviso, y vuelven con su sesión al abrirlos.
-- **Nombres.** Un agente creado desde el mod nace con nombre: su pestaña y, en Claude,
-  `claude -n <nombre>`. Doble clic o ✎ lo renombra. La sesión de Claude se mantiene con
-  el mismo nombre: si no coincide, el mod le manda `/rename`, solo con el agente quieto y
-  sin foco.
-- **Arrastrar en el árbol.**
-  - Un agente sobre otro queda adentro, solo a la vista.
-  - Una rama sin agente sobre otra cuelga de esa (`herdrBase`).
-  - Soltar sobre el título del proyecto lo saca.
-- **Cerrar.** ⌘W y ⌘⇧W cierran el panel con foco, no la pestaña. Si es un agente,
-  pregunta (Enter cierra, Esc cancela). La ✕ de la pestaña y la del encabezado también
-  preguntan. Si con eso se cierra lo último que usaba un worktree (de `worktreeRoots`),
-  el diálogo suma "Borrar también el worktree": marcada si no se pierde nada (`limpiar.py
-  check --ignore <terminales que se cierran>`), desmarcada y con el motivo si sí. Al
-  confirmar, `limpiar.py remove` lo vuelve a chequear y borra con `git worktree remove`.
-- **Cerrar pedido.** Al pasar el mouse por un pedido aparece ✕ → "¿cerrar?". Sus hijas
-  pasan a su base, y la rama se borra solo si no tiene worktree ni commits sin mergear.
-- **Review de un PR ajeno (botones cc / cx).**
-  - Crea el worktree `~/.herdr/worktrees/<repo>/rv-PR-<n>` en la rama `rv/PR-<n>`, con lo
-    último del PR.
-  - Es código no confiable: sparse-checkout deja afuera `.claude/`, `.mcp.json`,
-    `.codex/`, `.agents/`, `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` y
-    `AGENTS.override.md`. Si algo de eso queda a la vista, no lanza el agente.
-  - Después copia los `CLAUDE.md` y `AGENTS.md` de la rama principal del repo
-    (`origin/HEAD`; nunca la base del PR, que la elige quien lo abre), sin seguir symlinks
-    del PR, con `--assume-unchanged` para que `git status` quede limpio. Lo que esos docs
-    importan con `@ruta` va adentro del doc, sacado también de la rama principal (hasta 5
-    niveles), y sin los `@`: Claude no busca nada en el PR y los archivos del PR no se
-    tocan. Si algo de esto falla, no lanza el agente.
-  - Abre Claude (`--setting-sources user --dangerously-skip-permissions`) o Codex
-    (`--dangerously-bypass-approvals-and-sandbox`), en modo skip.
-  - Si la skill `pr-review` está en `~/.claude/skills`, le pide `/pr-review <n>`. Si no,
-    una review común que no publica nada sin tu ok.
-- **Arreglar tu PR (botón fix).** Abre Claude en la rama del PR, o le escribe al agente
-  que ya está ahí. Usa `/pr-fix` si la skill existe; si no, un pedido común.
-- **Fetch.** Si el fetch por SSH falla, reintenta por HTTPS con `gh auth git-credential`.
-- **Avisos.**
-  - Toast cuando llega un comentario a un PR tuyo, una review pedida o una respuesta a
-    tu review.
-  - Una vez por día, lo que lleva más de 24 h esperando.
-- **Panel GitHub.** Sigue al space activo. El ↻ gira mientras trae datos y después dice
-  "recién".
+  A click or focus wakes it with `--resume <session>` or `codex resume <id>` and the same
+  flags. If it had no conversation, it starts fresh.
+- **Restarts.** The `agents` role records which agent runs in each terminal and on which
+  herdr-core (pid from `hc server status`). If the core changed, the ones that were running
+  and are now a shell become asleep, with a notification, and come back with their session
+  when you open them.
+- **Names.** An agent created from the mod is born with a name: its tab and, for Claude,
+  `claude -n <name>`. Double-click or ✎ renames it. The Claude session is kept under the
+  same name: if it doesn't match, the mod sends it `/rename`, only while the agent is idle
+  and not focused.
+- **Dragging in the tree.**
+  - An agent dropped on another goes inside it, for display only.
+  - A branch with no agent dropped on another hangs from it (`herdrBase`).
+  - Dropping on the project heading takes it out.
+- **Closing.** ⌘W and ⌘⇧W close the focused pane, not the tab. If it's an agent, it asks
+  (Enter closes, Esc cancels). The tab's ✕ and the header's ✕ also ask. If that closes the
+  last thing using a worktree (under `worktreeRoots`), the dialog adds "Also delete the
+  worktree": checked if nothing would be lost (`limpiar.py check --ignore <terminals being
+  closed>`), unchecked with the reason if something would. On confirm, `limpiar.py remove`
+  checks again and deletes it with `git worktree remove`.
+- **Closing an epic.** Hovering an epic shows ✕ → "close?". Its children move to its base,
+  and the branch is deleted only if it has no worktree and no unmerged commits.
+- **Reviewing someone else's PR (cc / cx buttons).**
+  - Creates the worktree `~/.herdr/worktrees/<repo>/rv-PR-<n>` on branch `rv/PR-<n>`, with
+    the PR's latest.
+  - It's untrusted code: sparse-checkout leaves out `.claude/`, `.mcp.json`, `.codex/`,
+    `.agents/`, `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` and `AGENTS.override.md`. If any
+    of that is still visible, it doesn't launch the agent.
+  - Then it copies `CLAUDE.md` and `AGENTS.md` from the repo's main branch (`origin/HEAD`;
+    never the PR's base, which is chosen by whoever opens the PR), without following the
+    PR's symlinks, with `--assume-unchanged` so `git status` stays clean. Whatever those docs
+    import with `@path` is inlined into the doc, also taken from the main branch (up to 5
+    levels), and without the `@`s: Claude doesn't look anything up in the PR and the PR's
+    files aren't touched. If any of this fails, it doesn't launch the agent.
+  - Opens Claude (`--setting-sources user --dangerously-skip-permissions`) or Codex
+    (`--dangerously-bypass-approvals-and-sandbox`), in skip mode.
+  - If the `pr-review` skill is in `~/.claude/skills`, it asks for `/pr-review <n>`.
+    Otherwise, a plain review that publishes nothing without your ok.
+- **Fixing your PR (fix button).** Opens Claude on the PR's branch, or writes to the agent
+  already there. Uses `/pr-fix` if the skill exists; otherwise, a plain request.
+- **Fetch.** If fetching over SSH fails, it retries over HTTPS with `gh auth git-credential`.
+- **Notifications.**
+  - A toast when a comment arrives on one of your PRs, a review is requested, or someone
+    answers your review.
+  - Once a day, whatever has been waiting for more than 24 h.
+- **GitHub panel.** Follows the active space. The ↻ spins while fetching data and then
+  says "just now".
 
 ## Built from
 
-- **Un mod, varios roles.** `mods/herdr-mod/main.js` lee `props().role` y la copia pasa a
-  ser la clase de ese rol (`roles/<rol>.js`). Roles: `agents`, `spaces`, `tabs`, `github`,
-  `equipo`, `uso`, `tips`, `pane` (en el layout) y `waiting`, `buscar`, `close`,
-  `worktree` (diálogos). Herdr guarda el `localStorage` por copia.
-- **Layout.** `layouts/herdr-mod.json` pone el mod con su rol en cada lugar. Usa también
-  los mods de Herdr `files`, `changes` y `workspace-chrome` (íconos y spinner).
-- **Teclas.** `keys.json`. Los comandos `herdr-mod.<comando>` llegan a todas las copias, y
-  los atiende el rol `tabs`:
-  - ⌘W y ⌘⇧W → `herdr-mod.close`;
+- **One mod, several roles.** `mods/herdr-mod/main.js` reads `props().role` and the copy
+  becomes that role's class (`roles/<role>.js`). Roles: `agents`, `spaces`, `tabs`,
+  `github`, `equipo`, `uso`, `tips`, `pane` (in the layout) and `waiting`, `buscar`,
+  `close`, `worktree` (dialogs). Herdr stores `localStorage` per copy.
+- **Layout.** `layouts/herdr-mod.json` places the mod with its role in each spot. It also
+  uses Herdr's `files`, `changes` and `workspace-chrome` mods (icons and spinner).
+- **Keys.** `keys.json`. `herdr-mod.<command>` commands reach every copy, and the `tabs`
+  role handles them:
+  - ⌘W and ⌘⇧W → `herdr-mod.close`;
   - ⌘J → `herdr-mod.waiting`;
   - ⌘K → `herdr-mod.buscar`;
   - ⌘⇧C/X/G/E → `herdr-mod.claude|codex|github|equipo`.
-- **Datos compartidos (`shared`).** Los escribe el rol `agents` y los leen los demás:
-  - `herdr-mod.prs`, `herdr-mod.prs.at` y `herdr-mod.prs.loading`;
+- **Shared data (`shared`).** Written by the `agents` role and read by the others:
+  - `herdr-mod.prs`, `herdr-mod.prs.at` and `herdr-mod.prs.loading`;
   - `herdr-mod.alerts`;
-  - `herdr-mod.estado` (el estado de cada agente);
+  - `herdr-mod.estado` (each agent's state);
   - `herdr-mod.names`;
   - `herdr-mod.teams`;
   - `herdr-mod.chains.at`;
   - `herdr-mod.skills`.
-- **Configuración.** `config.json` (valores por defecto) y `config.local.json` (los tuyos,
-  fuera de git):
-  - `branchPrefix`: tu prefijo de ramas, por ejemplo `"usuario/"`;
-  - `projects`: carpetas donde buscar tus clones;
-  - `worktreeRoots`: carpetas con worktrees (`<carpeta>/<repo>/<nombre>`) para limpiar.
+- **Configuration.** `config.json` (defaults) and `config.local.json` (yours, kept out of
+  git):
+  - `branchPrefix`: your branch prefix, for example `"user/"`;
+  - `projects`: folders to search for your clones;
+  - `worktreeRoots`: folders holding worktrees (`<folder>/<repo>/<name>`) to clean up.
 - **Scripts (`scripts/`).**
-  - `agentes.py` (cada 5 s): pid, argv, sesión, nombre de la sesión y actividad de cada
-    agente, leídos de `~/.claude/sessions`, `~/.claude/projects` y `~/.codex/sessions`.
-    Acepta extensiones opcionales al lado (`<nombre>.py` con `start(ctx) -> enrich(st,
-    info)`).
-  - `teams.py`: los equipos de agentes de Claude.
-  - `prs.py` (cada 2 min): una consulta GraphQL con `gh api graphql`, más los clones
-    encontrados en `projects`.
-  - `usage.py`: tokens y costo estimado desde los transcripts.
-  - `limits.py`: límites de 5 h y semana.
-  - `limpiar.py` (con ⌘⇧K, rol `limpiar`): `list` clasifica los worktrees en se-pueden-borrar
-    (sin terminal ni agente, dormidos incluidos por la carpeta de su sesión; sin cambios ni
-    commits fuera del remoto o de main), para-revisar y en-uso; `remove` vuelve a chequear
-    cada uno y borra con `git worktree remove` sin `--force`.
-  - `stats.sh`: CPU, RAM y disco.
-- **Comandos de Herdr usados.** `tab.new {space, name, folder, argv, task}`, `space.new`,
+  - `agentes.py` (every 5 s): pid, argv, session, session name and activity of each agent,
+    read from `~/.claude/sessions`, `~/.claude/projects` and `~/.codex/sessions`. Accepts
+    optional extensions alongside it (`<name>.py` with `start(ctx) -> enrich(st, info)`).
+  - `teams.py`: Claude's agent teams.
+  - `prs.py` (every 2 min): one GraphQL query with `gh api graphql`, plus the clones found
+    in `projects`.
+  - `usage.py`: tokens and estimated cost from the transcripts.
+  - `limits.py`: 5 h and weekly limits.
+  - `limpiar.py` (with ⌘⇧K, role `limpiar`): `list` sorts worktrees into safe-to-delete (no
+    terminal or agent, sleeping ones included via their session's folder; no changes and no
+    commits missing from the remote or main), needs-review and in-use; `remove` checks each
+    one again and deletes it with `git worktree remove`, without `--force`.
+  - `stats.sh`: CPU, RAM and disk.
+- **Herdr commands used.** `tab.new {space, name, folder, argv, task}`, `space.new`,
   `space.move`, `space.select`, `tab.rename`, `tab.close {confirmed}`,
-  `pane.close {pane}`, `pane.focus`, `layout.select` y `layout.show`.
+  `pane.close {pane}`, `pane.focus`, `layout.select` and `layout.show`.
 
 ## Watch out
 
-- **Qué programas corre.** Usa `git`, `gh` (logueado), `hc`, `python3`, `open`, `kill` y
-  `security`. Este último lee el token OAuth de Claude Code del Keychain de macOS, lo
-  guarda solo en memoria y con él consulta la API de uso de Anthropic, o sea que **sale a
-  la red**.
-- **Qué lee fuera de su carpeta.** `~/.claude`, `~/.codex`, las carpetas de `projects` y
+- **Programs it runs.** It uses `git`, `gh` (logged in), `hc`, `python3`, `open`, `kill` and
+  `security`. The last one reads Claude Code's OAuth token from the macOS Keychain, keeps it
+  only in memory and uses it to query Anthropic's usage API, so **it goes out to the
+  network**.
+- **What it reads outside its folder.** `~/.claude`, `~/.codex`, the `projects` folders and
   `~/.herdr/worktrees`.
-- **Límites de Claude.** Necesitan que tu statusline de Claude Code guarde `rate_limits`
-  en `~/.cache/herdr-limits/claude.json` (ver `extras/statusline-limits.sh`). Sin eso, la
-  barra muestra solo los de Codex.
-- **El modo skip en reviews ajenas.** El agente puede ejecutar comandos sin preguntar. Lo
-  que protege es que no se carga la config ni las instrucciones de agentes del PR.
-- **Probar sin romper nada.**
-  - `herdr-app check` corre `init` de verdad y sin `props`: muestra el rol "desconocido".
-    Para chequear un rol, forzalo temporalmente en `main.js`.
-  - El rol `close` sin foco no cierra nada, pero no lo pruebes con un panel enfocado.
-  - Herdr no tiene drag & drop genérico: arrastrar está hecho con `on_mouse_down`,
-    `on_mouse_move` y `on_mouse_up` por fila.
-- **Estado guardado.** Herdr guarda el `localStorage` de cada copia en memoria y en
-  `data/herdr-mod/store-<hash>.json`. Escribir esos archivos con Herdr abierto no sirve:
-  los pisa.
+- **Claude limits.** They need your Claude Code statusline to save `rate_limits` to
+  `~/.cache/herdr-limits/claude.json` (see `extras/statusline-limits.sh`). Without that, the
+  bar shows only Codex's.
+- **Skip mode in other people's reviews.** The agent can run commands without asking. What
+  protects you is that neither the PR's config nor its agent instructions get loaded.
+- **Testing without breaking anything.**
+  - `herdr-app check` actually runs `init`, with no `props`: it shows the "unknown" role. To
+    check a role, force it temporarily in `main.js`.
+  - The `close` role with nothing focused closes nothing, but don't test it with a pane
+    focused.
+  - Herdr has no generic drag & drop: dragging is built with `on_mouse_down`,
+    `on_mouse_move` and `on_mouse_up` per row.
+- **Saved state.** Herdr keeps each copy's `localStorage` in memory and in
+  `data/herdr-mod/store-<hash>.json`. Writing those files while Herdr is open doesn't work:
+  it overwrites them.
 
 ## Done when
 
-- `herdr-app check ~/.config/herdr-app/mods/herdr-mod` pasa, también forzando cada rol.
-- `herdr-app do layout.switch '{"name":"herdr-mod"}'` muestra las barras de arriba.
-- `python3 mods/herdr-mod/scripts/agentes.py` imprime un objeto por agente vivo con `pid`,
-  `argv` y `session`.
-- `python3 mods/herdr-mod/scripts/prs.py ~/Projects` imprime `mine`, `reviews` (con
-  `status`) y `clones`, o `{error}`.
-- `herdr-app do herdr-mod.buscar` abre el buscador.
-- ⌘W en una terminal común la cierra sin preguntar; en un agente, pregunta.
-- Arrastrar un agente sobre otro lo muestra adentro; soltarlo en el título del proyecto
-  lo saca.
-- Un review cc crea `rv/PR-<n>` sin `CLAUDE.md` ni `.claude/` del PR y abre el agente con
-  el pedido.
+- `herdr-app check ~/.config/herdr-app/mods/herdr-mod` passes, also when forcing each role.
+- `herdr-app do layout.switch '{"name":"herdr-mod"}'` shows the bars described above.
+- `python3 mods/herdr-mod/scripts/agentes.py` prints one object per live agent with `pid`,
+  `argv` and `session`.
+- `python3 mods/herdr-mod/scripts/prs.py ~/Projects` prints `mine`, `reviews` (with
+  `status`) and `clones`, or `{error}`.
+- `herdr-app do herdr-mod.buscar` opens the search dialog.
+- ⌘W on a plain terminal closes it without asking; on an agent, it asks.
+- Dragging an agent onto another shows it inside; dropping it on the project heading takes
+  it out.
+- A review cc creates `rv/PR-<n>` without the PR's `CLAUDE.md` or `.claude/` and opens the
+  agent with the request.

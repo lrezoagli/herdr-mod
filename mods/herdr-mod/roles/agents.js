@@ -3,7 +3,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-// tips de atajos.
+// shortcut tips.
 import { exec, home, notify, agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 import { scoped } from "../store.js";
 import { cfg, prefixRe, loadConfig } from "../config.js";
@@ -11,8 +11,8 @@ const localStorage = scoped("agents");
 
 const tip = (...items) => setShared("herdr-mod.tip", { items: items.map(([action, text]) => ({ action, text })), at: Date.now() });
 const rowTip = (a) => (a.status === "blocked" || a.status === "done")
-  ? tip(["herdr-mod.waiting", "ver quién te espera"])
-  : tip(["herdr-mod.buscar", "buscar un agente"], ["agent.next", "agente siguiente"], ["herdr-mod.waiting", "ver quién te espera"]);
+  ? tip(["herdr-mod.waiting", "see who's waiting on you"])
+  : tip(["herdr-mod.buscar", "find an agent"], ["agent.next", "next agent"], ["herdr-mod.waiting", "see who's waiting on you"]);
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -55,7 +55,7 @@ const kidStatus = (k, listed) => {
   const s = listed.get(k.address) ?? k.status;
   return s === "error" ? "blocked" : s === "done" ? "idle" : s;
 };
-// Los colores de los compañeros de Claude, en la paleta del tema.
+// Claude teammates' colors, in the theme's palette.
 const MATE_COLOR = { red: "ansi1", green: "ansi2", yellow: "ansi3", blue: "ansi4", purple: "ansi5", cyan: "ansi6", orange: "ansi9", pink: "ansi13" };
 const SORTS = [
   { id: "priority", label: "Priority", icon: "clock" },
@@ -86,37 +86,37 @@ export default class Agents extends View {
     // Each agent's last state and when it changed (ms), kept across restarts.
     this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}");
     this.pins = JSON.parse(localStorage.getItem("pins") ?? "[]");
-    this.parents = JSON.parse(localStorage.getItem("parents") ?? "{}"); // agente -> agente que lo contiene (solo a la vista)
+    this.parents = JSON.parse(localStorage.getItem("parents") ?? "{}"); // agent -> agent that contains it (view only)
     cx.timer.every(30000, (cx) => cx.notify());
-    // arbol de ramas por proyecto (branch.<b>.herdrBase / herdrPedido en git).
+    // branch tree per project (branch.<b>.herdrBase / herdrPedido in git).
     this.chains = {};
     cx.timer.every(15000, (cx) => this.loadChains(cx));
-    // Otro mod (GitHub, el dialogo de agente) cambio una cadena: recargar ya.
-    this.chainsAt = shared("herdr-mod.chains.at") ?? 0; // lo mira el timer de 1 s de abajo
+    // Another mod (GitHub, the agent dialog) changed a chain: reload now.
+    this.chainsAt = shared("herdr-mod.chains.at") ?? 0; // checked by the 1 s timer below
     this.loadChains(cx);
-    // compañeros de los equipos de Claude (agent teams), por terminal.
+    // Claude agent-team teammates, per terminal.
     this.teams = {};
     cx.timer.every(5000, (cx) => this.loadTeams(cx));
     this.loadTeams(cx);
-    // qué hace cada agente (agentes.py, cada 5 s; con una extensión al lado, también
-    // su etapa) y los PRs míos
-    // con comentarios nuevos (cada 2 min). Todo lo que pide atención va a
-    // shared("herdr-mod.alerts") para la barra de abajo y ⌘J.
+    // what each agent is doing (agentes.py, every 5 s; with an extension next to it, also
+    // its stage) and my PRs
+    // with new comments (every 2 min). Everything that needs attention goes to
+    // shared("herdr-mod.alerts") for the bottom bar and ⌘J.
     this.lk = {};
     this.prs = null;
-    // agentes dormidos (2 h sin uso): salen con /exit y vuelven con --resume.
+    // sleeping agents (2 h unused): they leave with /exit and come back with --resume.
     this.sleeping = JSON.parse(localStorage.getItem("sleeping") ?? "{}");
     cx.timer.every(60000, (cx) => this.sleepIdle(cx));
     cx.timer.after(30000, (cx) => this.sleepIdle(cx));
-    // Si herdr-core se reinició (reinicio de la compu, actualización), los agentes que estaban
-    // andando quedaron como shells: pasan a dormidos y vuelven con --resume al abrirlos.
+    // If herdr-core restarted (computer reboot, update), the agents that were running
+    // were left as shells: they become sleeping and come back with --resume when opened.
     this.recovered = false;
     cx.timer.after(8000, (cx) => this.recoverAfterRestart(cx));
     this.reviewWarned = new Set();
     cx.timer.every(5000, (cx) => this.loadEstado(cx));
     this.loadEstado(cx);
-    // /pr-review y /pr-fix (skills, si las tenés): si no están instaladas, los botones de PR
-    // mandan un pedido común. shared("herdr-mod.skills") = { "pr-review": bool, "pr-fix": bool }.
+    // /pr-review and /pr-fix (skills, if you have them): if they aren't installed, the PR buttons
+    // send a plain request. shared("herdr-mod.skills") = { "pr-review": bool, "pr-fix": bool }.
     const skills = (cx) => cx.spawn(async () => {
       const r = await exec("sh", ["-c", 'for s in pr-review pr-fix; do [ -f "$HOME/.claude/skills/$s/SKILL.md" ] && echo $s; done']);
       const have = new Set((r.stdout ?? "").split("\n").filter(Boolean));
@@ -126,10 +126,10 @@ export default class Agents extends View {
     cx.timer.every(600000, skills);
     cx.timer.every(120000, (cx) => this.loadReviews(cx));
     cx.timer.after(4000, (cx) => this.loadReviews(cx));
-    cx.timer.after(25000, (cx) => this.loadReviews(cx)); // con los proyectos ya cargados
-    // ⌘J y la barra piden descartar un aviso de PR o actualizar ya.
-    // ↻ del panel GitHub pide actualizar ya.
-    // Un solo timer de 1 s para todo lo que piden los otros mods (cada llamada a JS cuesta).
+    cx.timer.after(25000, (cx) => this.loadReviews(cx)); // with the projects already loaded
+    // ⌘J and the bar ask to dismiss a PR alert or refresh now.
+    // The GitHub panel's ↻ asks to refresh now.
+    // A single 1 s timer for everything the other mods ask for (each JS call costs).
     cx.timer.every(1000, (cx) => {
       const at = shared("herdr-mod.chains.at") ?? 0;
       if (at > this.chainsAt) { this.chainsAt = at; this.loadChains(cx); }
@@ -137,15 +137,15 @@ export default class Agents extends View {
       if (d && d.at > (this.dismissAt ?? 0)) { this.dismissAt = d.at; this.dismissPr(d.key); this.publishAlerts(); cx.notify(); }
       const f = shared("herdr-mod.prs.refresh");
       if (f && f > (this.refreshAt ?? 0)) { this.refreshAt = f; this.loadReviews(cx); }
-      // Mirar un agente dormido lo despierta.
+      // Looking at a sleeping agent wakes it.
       const pane = focused()?.pane;
       const z = pane && Object.values(this.sleeping).find((r) => r.pane === pane);
-      if (z && !agents().some((a) => a.address === z.addr)) { this.wake(z.addr); cx.notify(); } // si todavía está saliendo, al próximo tick
+      if (z && !agents().some((a) => a.address === z.addr)) { this.wake(z.addr); cx.notify(); } // if it's still exiting, on the next tick
     });
   }
 
-  // Avisos: un compañero que termina su turno (con lo que contesto) y, cuando
-  // terminan todos, el equipo entero. Solo cambios, nunca al arrancar.
+  // Notifications: a teammate that finishes its turn (with what it answered) and, when
+  // they all finish, the whole team. Only changes, never at startup.
   announce(before, after) {
     for (const [lead, mates] of Object.entries(after)) {
       const was = new Map((before[lead] ?? []).map((m) => [m.name, m.status]));
@@ -154,7 +154,7 @@ export default class Agents extends View {
       const who = panes().find((p) => p.terminal === lead)?.branch?.replace(prefixRe(), "") || lead;
       const all = mates.every((m) => m.status === "idle");
       for (const m of done) {
-        notify({ title: all && m === done.at(-1) ? `Equipo de ${who}: terminaron todos` : `${m.name} terminó (${who})`, body: m.said ?? "", level: "info", timeout: 8000 });
+        notify({ title: all && m === done.at(-1) ? `${who}'s team: all done` : `${m.name} finished (${who})`, body: m.said ?? "", level: "info", timeout: 8000 });
       }
     }
   }
@@ -166,12 +166,12 @@ export default class Agents extends View {
       try {
         const r = await exec("python3", [`${home()}/.config/herdr-app/mods/herdr-mod/scripts/agentes.py`]);
         const next = JSON.parse(r.stdout || "{}");
-        // Una revisión cruzada que pasa los 15 min: aviso, una vez por proceso.
+        // A cross-review running past 15 min: alert, once per process.
         for (const [addr, st] of Object.entries(next)) {
           const rv = st.review;
           if (rv && rv.secs >= 900 && !this.reviewWarned.has(rv.pid)) {
             this.reviewWarned.add(rv.pid);
-            notify({ title: `La revisión de ${rv.tool} de ${this.who(addr)} lleva ${Math.floor(rv.secs / 60)} min`, body: "Puede estar colgada: la cortás desde la barra de abajo o ⌘J.", level: "warning", timeout: 10000 });
+            notify({ title: `${rv.tool} review of ${this.who(addr)} running for ${Math.floor(rv.secs / 60)} min`, body: "It may be stuck: stop it from the bottom bar or ⌘J.", level: "warning", timeout: 10000 });
           }
         }
         if (JSON.stringify(next) !== JSON.stringify(this.lk)) {
@@ -187,9 +187,9 @@ export default class Agents extends View {
     });
   }
 
-  // La sesión de Claude se llama como el agente: si no (Claude le inventó uno, o le
-  // cambiaste el nombre en Herdr), le mando /rename. Solo con el agente quieto y sin
-  // foco, para no mezclarlo con lo que estés escribiendo; un intento cada 2 min.
+  // The Claude session is named like the agent: if not (Claude made one up, or you
+  // renamed it in Herdr), send it /rename. Only while the agent is idle and unfocused,
+  // so it doesn't mix with what you're typing; one attempt every 2 min.
   syncNames() {
     const now = Date.now();
     this.renameSent ??= {};
@@ -204,22 +204,22 @@ export default class Agents extends View {
     }
   }
 
-  // La rama (sin prefijo) del agente, o su programa.
+  // The agent's branch (without prefix), or its program.
   who(addr) {
     const p = panes().find((x) => x.terminal === addr);
     return this.names?.[addr] || p?.branch?.replace(prefixRe(), "") || terminals().find((k) => k.address === addr)?.program?.name || addr;
   }
 
-  // GitHub, en todos mis repos (scripts/prs.py, cada 2 min): mis PRs
-  // abiertos (si me toca: hilos sin responder, comentarios nuevos, cambios pedidos,
-  // CI, conflictos) y los que me pidieron revisar. Va a shared("herdr-mod.prs") para
-  // el panel GitHub, con repos = {"dueño/repo": checkout local de algún proyecto}.
-  // Avisa lo nuevo (la primera vez, sin aviso) y una vez por día lo que lleva más
-  // de un día esperando.
+  // GitHub, across all my repos (scripts/prs.py, every 2 min): my open PRs
+  // (if it's my turn: unanswered threads, new comments, requested changes,
+  // CI, conflicts) and the ones I was asked to review. Goes to shared("herdr-mod.prs") for
+  // the GitHub panel, with repos = {"owner/repo": local checkout of some project}.
+  // Notifies what's new (no notification the first time) and once a day what has been
+  // waiting for more than a day.
   loadReviews(cx) {
     if (this.loadingReviews) return;
     this.loadingReviews = true;
-    setShared("herdr-mod.prs.loading", true); // el ↻ del panel GitHub gira
+    setShared("herdr-mod.prs.loading", true); // the GitHub panel's ↻ spins
     cx.spawn(async (cx) => {
       try {
         const repos = {};
@@ -237,15 +237,15 @@ export default class Agents extends View {
         const data = JSON.parse(r.stdout || "{}");
         if (data.error || !data.mine) {
           const at = Date.now();
-          setShared("herdr-mod.prs", { ...(shared("herdr-mod.prs") ?? {}), error: data.error ?? "gh no respondió", repos, at });
-          setShared("herdr-mod.prs.at", at); // que el panel muestre el ⚠
+          setShared("herdr-mod.prs", { ...(shared("herdr-mod.prs") ?? {}), error: data.error ?? "gh didn't respond", repos, at });
+          setShared("herdr-mod.prs.at", at); // so the panel shows the ⚠
         } else {
           this.prs = data;
-          // Los repos que no están abiertos en Herdr pero sí clonados en ~/Projects.
+          // Repos not open in Herdr but cloned in ~/Projects.
           for (const [slug, main] of Object.entries(data.clones ?? {})) repos[slug] ??= { main, on: null, space: null };
           const at = Date.now();
           setShared("herdr-mod.prs", { ...data, clones: undefined, repos, at });
-          setShared("herdr-mod.prs.at", at); // chico: para ver si cambió sin traer todo
+          setShared("herdr-mod.prs.at", at); // small: to see if it changed without fetching everything
           this.announcePrs(data);
         }
         this.publishAlerts();
@@ -267,21 +267,21 @@ export default class Agents extends View {
       const key = `${pr.repo}#${pr.number}`, n = pr.threads + pr.comments + (pr.changes ? 1 : 0);
       nextTalk[key] = n;
       if (!first && n > (talk[key] ?? 0)) {
-        notify({ title: `${short(pr)}: ${pr.changes && !(talk[key] > 0) ? "te pidieron cambios" : "te comentaron"}`, body: `${pr.title}\nEn GitHub › Mis PRs: /pr-fix con un clic.`, level: "info", timeout: 12000 });
+        notify({ title: `${short(pr)}: ${pr.changes && !(talk[key] > 0) ? "changes requested" : "new comments"}`, body: `${pr.title}\nIn GitHub › My PRs: /pr-fix in one click.`, level: "info", timeout: 12000 });
       }
     }
-    // Reviews que piden algo: pedidas o que ya revisé y me respondieron ("reviewed" no avisa).
+    // Reviews that need something: requested, or already reviewed and answered ("reviewed" doesn't notify).
     const pending = data.reviews.filter((p) => p.status !== "reviewed");
     for (const pr of pending) {
       const key = `${pr.repo}#${pr.number}`;
       nextAsked[key] = pr.asked_at;
       if (!first && asked[key] !== pr.asked_at) {
-        notify({ title: pr.status === "answered" ? `${pr.author} respondió tu review: ${short(pr)}` : `${pr.author} te pidió review${pr.again ? " otra vez" : ""}: ${short(pr)}`,
-          body: `${pr.title}${pr.why ? `\n${pr.why}` : ""}\nEn GitHub › Reviews.`, level: "info", timeout: 12000 });
+        notify({ title: pr.status === "answered" ? `${pr.author} replied to your review: ${short(pr)}` : `${pr.author} requested your review${pr.again ? " again" : ""}: ${short(pr)}`,
+          body: `${pr.title}${pr.why ? `\n${pr.why}` : ""}\nIn GitHub › Reviews.`, level: "info", timeout: 12000 });
       }
     }
     store("prtalk", nextTalk); store("prasked", nextAsked);
-    // Una vez por día: lo que lleva más de 24 h esperándote.
+    // Once a day: what has been waiting on you for more than 24 h.
     const today = new Date().toDateString();
     if (localStorage.getItem("prnag") !== today) {
       const old = (iso) => iso && Date.now() - Date.parse(iso) > 86400000;
@@ -289,12 +289,12 @@ export default class Agents extends View {
       const ch = data.mine.filter((p) => p.changes && old(p.updated)).length;
       if (rr || ch) {
         localStorage.setItem("prnag", today);
-        notify({ title: "Te están esperando en GitHub", body: [rr && `${rr} review${rr > 1 ? "s" : ""} esperándote hace más de un día`, ch && `${ch} PR${ch > 1 ? "s" : ""} tuyo${ch > 1 ? "s" : ""} con cambios pedidos`].filter(Boolean).join(" · "), level: "warning", timeout: 15000 });
+        notify({ title: "People are waiting on you in GitHub", body: [rr && `${rr} review${rr > 1 ? "s" : ""} waiting on you for over a day`, ch && `${ch} PR${ch > 1 ? "s" : ""} of yours with changes requested`].filter(Boolean).join(" · "), level: "warning", timeout: 15000 });
       }
     }
   }
 
-  // ✕ en ⌘J: silencia el aviso hasta que cambie (otro comentario, otro pedido).
+  // ✕ in ⌘J: mutes the alert until it changes (another comment, another request).
   dismissPr(key) {
     const sig = this.prSig(key);
     if (sig == null) return;
@@ -310,35 +310,35 @@ export default class Agents extends View {
     return rr ? rr.asked_at : null;
   }
 
-  // Lo que pide atención: revisiones largas, agentes esperando go y PRs con comentarios.
+  // What needs attention: long reviews, agents waiting for go, and PRs with comments.
   publishAlerts() {
     const out = [];
     for (const [addr, st] of Object.entries(this.lk)) {
       if (st.review && st.review.secs >= 600) out.push({ kind: "review", addr, who: this.who(addr), secs: st.review.secs, pid: st.review.pid, tool: st.review.tool, hung: st.review.secs >= 1200 });
       if (st.next) out.push({ kind: "go", addr, who: this.who(addr), next: st.next, stage: st.stage, size: st.size });
     }
-    // Mis PRs con algo que contestar y las reviews que me pidieron (menos lo silenciado).
+    // My PRs with something to answer and the reviews requested from me (minus the muted ones).
     const mute = JSON.parse(localStorage.getItem("prmute") ?? "{}");
     const plural = (n, a) => `${n} ${a}${n > 1 ? "s" : ""}`;
     for (const pr of this.prs?.mine ?? []) {
       const key = `${pr.repo}#${pr.number}`;
       if (!pr.talk || mute[key] === this.prSig(key)) continue;
       const agent = panes().find((p) => p.branch === pr.branch && p.program?.agent);
-      const what = [pr.changes && "pidieron cambios", pr.threads && `${plural(pr.threads, "hilo")} sin responder`, pr.comments && `${plural(pr.comments, "comentario")} nuevo${pr.comments > 1 ? "s" : ""}`].filter(Boolean).join(" · ");
+      const what = [pr.changes && "changes requested", pr.threads && `${plural(pr.threads, "unanswered thread")}`, pr.comments && `${plural(pr.comments, "new comment")}`].filter(Boolean).join(" · ");
       out.push({ kind: "pr", key, repo: pr.repo, number: pr.number, branch: pr.branch, url: pr.url, n: pr.threads + pr.comments, changes: pr.changes, what,
         who: `${pr.repo.split("/")[1]} #${pr.number}`, title: pr.title, addr: agent?.terminal ?? null });
     }
     for (const pr of this.prs?.reviews ?? []) {
       const key = `rr:${pr.repo}#${pr.number}`;
       if (pr.draft || pr.status === "reviewed" || mute[key] === pr.asked_at) continue;
-      const what = pr.status === "answered" ? `${pr.author} respondió tu review: ${pr.why}` : `${pr.author} te pidió review${pr.again ? " otra vez" : ""} · +${pr.plus} −${pr.minus}`;
+      const what = pr.status === "answered" ? `${pr.author} replied to your review: ${pr.why}` : `${pr.author} requested your review${pr.again ? " again" : ""} · +${pr.plus} −${pr.minus}`;
       out.push({ kind: "rr", key, repo: pr.repo, number: pr.number, url: pr.url, author: pr.author, asked_at: pr.asked_at, again: pr.again, status: pr.status,
         who: `${pr.repo.split("/")[1]} #${pr.number}`, title: pr.title, what, addr: null });
     }
     setShared("herdr-mod.alerts", out);
   }
 
-  // Etapa (de una extensión) y revisión corriendo, como chips de la fila del agente.
+  // Stage (from an extension) and running review, as chips on the agent's row.
   loopTags(t, a) {
     const st = this.lk?.[a.address];
     if (!st) return [];
@@ -346,19 +346,19 @@ export default class Agents extends View {
     if (st.stage) {
       const c = /^(design|spec|tickets|split)/.test(st.stage) ? t.ansi4 : /^(impl|fix|small|refactor)/.test(st.stage) ? t.ansi3 : /^pr/.test(st.stage) ? t.ansi2 : t.muted;
       out.push(div().id(`lk-${a.address}`).flex_none().px(5).rounded(4).text_size(10.5).font_semibold().bg(`${c}26`).text_color(c)
-        .tooltip([`etapa: /${st.stage}`, st.size ? `tamaño ${st.size}${st.mode ? ` · modo ${st.mode}` : ""}` : null, st.activity, st.next ? `espera go para ${st.next}` : null].filter(Boolean).join("\n"))
+        .tooltip([`stage: /${st.stage}`, st.size ? `size ${st.size}${st.mode ? ` · mode ${st.mode}` : ""}` : null, st.activity, st.next ? `waiting for go on ${st.next}` : null].filter(Boolean).join("\n"))
         .child(`${st.size ? `${st.size} · ` : ""}${st.stage}`));
     }
     if (st.next) out.push(div().flex_none().px(5).rounded(4).text_size(10.5).font_semibold().bg(`${t.accent}26`).text_color(t.accent).child("go?"));
     if (st.review) {
       const m = Math.floor(st.review.secs / 60), c = st.review.secs >= 1200 ? t.blocked : st.review.secs >= 600 ? t.ansi3 : t.muted;
       out.push(div().id(`rv-${a.address}`).flex_none().px(5).rounded(4).text_size(10.5).font_semibold().bg(`${c}26`).text_color(c)
-        .tooltip(`Revisión de ${st.review.tool} corriendo hace ${m} min`).child(`${st.review.tool} ${m}m`));
+        .tooltip(`${st.review.tool} review running for ${m} min`).child(`${st.review.tool} ${m}m`));
     }
     return out;
   }
 
-  // teams.py lee ~/.claude/teams y devuelve { "t1b": [{ name, color, model, status, task }] }.
+  // teams.py reads ~/.claude/teams and returns { "t1b": [{ name, color, model, status, task }] }.
   loadTeams(cx) {
     if (this.loadingTeams) return;
     this.loadingTeams = true;
@@ -402,9 +402,9 @@ export default class Agents extends View {
             if (key.endsWith(".herdrfrom")) from[name] = val;
             if (key.endsWith(".herdrpedido") && val === "true") pedidos.add(name);
           }
-          // Estado de cada rama del pedido: ✓ ya esta en el pedido, ● commits
-          // propios sin mergear, ○ sin commits. Los propios: from..rama (herdrFrom;
-          // sin el, fork-point y si no merge-base con su base).
+          // State of each epic branch: ✓ already in the epic, ● own commits
+          // not merged, ○ no commits. Own ones: from..branch (herdrFrom;
+          // without it, fork-point, else merge-base with its base).
           const pedidoOf = (b, seen = new Set()) => pedidos.has(b) ? b : base[b] && !seen.has(b) ? pedidoOf(base[b], seen.add(b)) : null;
           const state = {};
           for (const b of Object.keys(base)) {
@@ -414,7 +414,7 @@ export default class Agents extends View {
             const ped = pedidoOf(b);
             state[b] = { ahead, merged: ahead > 0 && Boolean(ped) && (await git(["merge-base", "--is-ancestor", b, ped])).ok };
           }
-          // PRs por rama: gh es lento, cada 2 minutos por repo.
+          // PRs per branch: gh is slow, every 2 minutes per repo.
           const common = (await git(["rev-parse", "--path-format=absolute", "--git-common-dir"])).out;
           const cache = this.prs[common];
           if ((pedidos.size || Object.keys(base).length) && (!cache || Date.now() - cache.at > 120000)) {
@@ -506,14 +506,14 @@ export default class Agents extends View {
         .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground)))));
   }
 
-  // Arrastrar y soltar en el arbol (this.drag vive del mouse_down al mouse_up; salir
-  // de la lista lo cancela). Destinos: "a:<terminal>" (un agente), "b:<rama>" (una
-  // rama sin agente, p. ej. un pedido) o null (el titulo del proyecto).
-  // - Un agente sobre otro agente: queda adentro de ese, solo a la vista
-  //   (localStorage "parents"; git no se toca). Sobre el titulo: vuelve a su lugar.
-  // - Sobre una rama sin agente, o una rama sin agente sobre lo que sea: la rama pasa
-  //   a colgar de esa (branch.<rama>.herdrBase; el codigo no se toca). Sobre el
-  //   titulo: queda sin base.
+  // Drag and drop in the tree (this.drag lives from mouse_down to mouse_up; leaving
+  // the list cancels it). Targets: "a:<terminal>" (an agent), "b:<branch>" (a
+  // branch without an agent, e.g. an epic) or null (the project title).
+  // - An agent onto another agent: it goes inside that one, view only
+  //   (localStorage "parents"; git untouched). Onto the title: back to its place.
+  // - Onto a branch without an agent, or a branch without an agent onto anything: the branch
+  //   now hangs from that one (branch.<branch>.herdrBase; code untouched). Onto the
+  //   title: it's left without a base.
   targetBranch(target) {
     if (!target) return null;
     if (target.startsWith("b:")) return target.slice(2);
@@ -528,7 +528,7 @@ export default class Agents extends View {
       const to = target.slice(2);
       if (this.parents[d.addr] === to) return false;
       const sp = agents().find((a) => a.address === to)?.space ?? this.sleeping[to]?.space;
-      if (sp && sp !== d.space) return false; // solo dentro del mismo proyecto
+      if (sp && sp !== d.space) return false; // only within the same project
       for (let x = to, seen = new Set(); x && !seen.has(x); x = this.parents[x]) { if (x === d.addr) return false; seen.add(x); }
       return true;
     }
@@ -557,19 +557,19 @@ export default class Agents extends View {
     cx.notify();
     if (!d?.moving || !this.canDrop(d, target)) return;
     const short = (b) => b.replace(prefixRe(), "");
-    // El nombre que le pusiste (su pestaña), si no la rama.
+    // The name you gave it (its tab), else the branch.
     const nameOf = (addr) => {
       const tab = agents().find((a) => a.address === addr)?.tab;
       const named = tab && spaces().flatMap((s) => s.tabs).find((x) => x.id === tab && x.named);
       return named?.name || this.who(addr);
     };
-    // Agente adentro de otro, o de vuelta a su lugar: solo a la vista.
+    // Agent inside another, or back to its place: view only.
     if (d.addr && (target === null ? this.parents[d.addr] : target.startsWith("a:"))) {
       const next = { ...this.parents };
       if (target === null) delete next[d.addr]; else next[d.addr] = target.slice(2);
       this.setParents(next);
-      notify({ title: target === null ? `${nameOf(d.addr)} volvió a su lugar` : `${nameOf(d.addr)} ahora está dentro de ${nameOf(target.slice(2))}`,
-        body: "Solo a la vista: ni la rama ni el código cambian. Soltalo sobre el título del proyecto para sacarlo.", level: "info", timeout: 5000 });
+      notify({ title: target === null ? `${nameOf(d.addr)} is back in its place` : `${nameOf(d.addr)} is now inside ${nameOf(target.slice(2))}`,
+        body: "View only: neither the branch nor the code changes. Drop it on the project title to take it out.", level: "info", timeout: 5000 });
       return;
     }
     const c = this.chains[d.space];
@@ -578,14 +578,14 @@ export default class Agents extends View {
     cx.spawn(async () => {
       const args = target === null ? ["config", "--unset", `branch.${d.b}.herdrBase`] : ["config", `branch.${d.b}.herdrBase`, tb];
       const r = await exec("git", args, { cwd: c.cwd, on: c.on });
-      if (r.code !== 0) return notify({ title: `No pude mover ${short(d.b)}`, body: (r.stderr || r.stdout || "").trim(), level: "error" });
+      if (r.code !== 0) return notify({ title: `Couldn't move ${short(d.b)}`, body: (r.stderr || r.stdout || "").trim(), level: "error" });
       if (d.addr && this.parents[d.addr]) { const next = { ...this.parents }; delete next[d.addr]; this.setParents(next); }
       setShared("herdr-mod.chains.at", Date.now());
-      notify({ title: target === null ? `${short(d.b)} quedó suelta` : `${short(d.b)} ahora cuelga de ${short(tb)}`, body: "Solo el árbol: el código no se tocó.", level: "info", timeout: 5000 });
+      notify({ title: target === null ? `${short(d.b)} has no base now` : `${short(d.b)} now hangs from ${short(tb)}`, body: "Tree only: the code wasn't touched.", level: "info", timeout: 5000 });
     });
   }
 
-  // Lo que tiene cada fila del arbol para arrastrar y soltar. src: {addr?, b?, space}; key: su destino.
+  // Drag-and-drop wiring for each tree row. src: {addr?, b?, space}; key: its target.
   draggable(el, t, src, key) {
     const d = this.drag;
     const target = d?.moving && d.over === key;
@@ -598,16 +598,16 @@ export default class Agents extends View {
       .when(Boolean(target) && !this.canDrop(d, key) && d.src !== key, (el) => el.bg(`${t.blocked}22`));
   }
 
-  // ✓ ● ○ de una rama de pedido y su PR. Nada si la rama no es de ninguna cadena.
+  // ✓ ● ○ of an epic branch and its PR. Nothing if the branch isn't in any chain.
   branchTags(t, spaceId, b) {
     const c = this.chains[spaceId];
     if (!b || !c) return [];
     const out = [];
-    // El pedido lo dice tenga o no agente.
-    if (c.pedidos?.has(b)) out.push(div().flex_none().px(5).rounded(4).text_size(10.5).bg(`${t.accent}22`).text_color(t.accent).child("pedido"));
+    // The epic says so whether or not it has an agent.
+    if (c.pedidos?.has(b)) out.push(div().flex_none().px(5).rounded(4).text_size(10.5).bg(`${t.accent}22`).text_color(t.accent).child("epic"));
     const st = c.state?.[b];
     if (st) {
-      const [mark, color, tip] = st.merged ? ["✓", t.ansi2, "ya está en el pedido"] : st.ahead > 0 ? ["●", t.accent, `${st.ahead} commit${st.ahead > 1 ? "s" : ""} sin mergear`] : ["○", t.dim, "sin commits"];
+      const [mark, color, tip] = st.merged ? ["✓", t.ansi2, "already in the epic"] : st.ahead > 0 ? ["●", t.accent, `${st.ahead} unmerged commit${st.ahead > 1 ? "s" : ""}`] : ["○", t.dim, "no commits"];
       out.push(div().id(`st-${b}`).flex_none().text_size(11).text_color(color).tooltip(tip).child(mark));
     }
     const pr = c.prs?.[b];
@@ -616,10 +616,10 @@ export default class Agents extends View {
     return out;
   }
 
-  // + : una rama nueva encima de `b`, con Claude o Codex (el dialogo pide issue y agente).
+  // + : a new branch on top of `b`, with Claude or Codex (the dialog asks for issue and agent).
   plus(t, spaceId, b) {
     return div().id(`plus-${b}`).flex_none().px(4).rounded(4).text_size(13).font_semibold().text_color(t.accent).cursor_pointer()
-      .tooltip(`agente nuevo en una rama encima de ${b.replace(prefixRe(), "")}`)
+      .tooltip(`new agent on a branch on top of ${b.replace(prefixRe(), "")}`)
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => {
         cx.stop_propagation();
@@ -628,35 +628,35 @@ export default class Agents extends View {
       .child("+");
   }
 
-  // Dormir: un agente de Claude o Codex sin uso hace 2 h (idle o done, sin mirar)
-  // sale con /exit (Codex: /quit) y libera su RAM; la terminal queda con su shell.
-  // Sigue en la lista, en gris con "zz"; al mirarlo (clic o yendo a su pestaña)
-  // vuelve con `claude --resume <sesión>` (Codex: `codex resume`), con sus flags;
-  // si nunca tuvo conversación, arranca de cero.
-  // No se duerme: el fijado (pin), el que tiene compañeros de equipo o sub-agentes
-  // vivos, el que corre una revisión, ni uno de otra máquina.
+  // Sleep: a Claude or Codex agent unused for 2 h (idle or done, not viewed)
+  // leaves with /exit (Codex: /quit) and frees its RAM; the terminal keeps its shell.
+  // It stays in the list, grayed with "zz"; viewing it (click or going to its tab)
+  // brings it back with `claude --resume <session>` (Codex: `codex resume`), with its flags;
+  // if it never had a conversation, it starts from scratch.
+  // Never put to sleep: a pinned one, one with live teammates or sub-agents,
+  // one running a review, or one on another machine.
   sleepIdle(cx) {
     const SLEEP_MS = 2 * 3600 * 1000;
     const now = Date.now();
     const terms = new Map(terminals().map((k) => [k.address, k]));
     const listed = new Set(agents().map((a) => a.address));
-    // Los que ya no hacen falta: la terminal se fue o alguien volvió a abrir el agente.
+    // No longer needed: the terminal is gone or someone reopened the agent.
     for (const [addr, r] of Object.entries(this.sleeping)) {
       if (terms.get(addr)?.state !== "live" || listed.has(addr)) delete this.sleeping[addr];
     }
-    // Los "adentro de" de agentes que ya no están.
+    // "Inside of" links for agents that are gone.
     const gone = Object.entries(this.parents).filter(([k, v]) => !terms.has(k) || !terms.has(v));
     if (gone.length) { const next = { ...this.parents }; for (const [k] of gone) delete next[k]; this.setParents(next); }
     const me = focused()?.agent;
     const slept = [];
     for (const a of agents()) {
       const st = this.lk?.[a.address], k = terms.get(a.address);
-      // Sin sesión (nunca charló): se duerme igual y despierta de cero, no pierde nada.
+      // No session (never chatted): it sleeps anyway and wakes from scratch, nothing lost.
       if (!st || !["claude-code", "codex"].includes(st.agent)) continue;
       if (!["idle", "done"].includes(a.status) || a.focused || a.address === me || a.address.includes("/")) continue;
       if (this.pins.includes(a.address) || st.review || (this.teams?.[a.address] ?? []).length) continue;
       if (terminals().some((x) => x.parent === a.address && x.state === "live")) continue;
-      // Desde cuándo está así: lo que anota track() (sobrevive reinicios); terminals() no lo trae.
+      // Since when it's been like this: what track() records (survives restarts); terminals() doesn't have it.
       const since = this.since(a) || k?.status_ms;
       if (!since || now - since < SLEEP_MS) continue;
       this.sleeping[a.address] = {
@@ -668,13 +668,13 @@ export default class Agents extends View {
     }
     localStorage.setItem("sleeping", JSON.stringify(this.sleeping));
     if (slept.length) {
-      notify({ title: `Dormí ${slept.length === 1 ? slept[0] : `${slept.length} agentes`}`, body: `${slept.length > 1 ? slept.join(", ") + ": " : ""}2 h sin uso. Siguen en la lista (zz); al abrirlos vuelven donde estaban.`, level: "info", timeout: 8000 });
+      notify({ title: `Put ${slept.length === 1 ? slept[0] : `${slept.length} agents`} to sleep`, body: `${slept.length > 1 ? slept.join(", ") + ": " : ""}unused for 2 h. Still in the list (zz); open them to pick up where they left off.`, level: "info", timeout: 8000 });
       cx.notify();
     }
   }
 
-  // Qué agente corre en cada terminal (con su sesión y cómo se lanzó), y en qué herdr-core:
-  // localStorage "running". Si el core cambia, recoverAfterRestart sabe qué se cortó.
+  // Which agent runs in each terminal (with its session and how it was launched), and on which herdr-core:
+  // localStorage "running". If the core changes, recoverAfterRestart knows what was cut off.
   trackRunning() {
     if (!this.recovered || !this.corePid) return;
     const out = {};
@@ -706,8 +706,8 @@ export default class Agents extends View {
           }
           if (back.length) {
             localStorage.setItem("sleeping", JSON.stringify(this.sleeping));
-            notify({ title: `${back.length === 1 ? back[0] : `${back.length} agentes`} se cortaron con el reinicio`,
-              body: `${back.length > 1 ? back.join(", ") + ". " : ""}Quedan en la lista (zz): al abrirlos vuelven con su sesión.`, level: "info", timeout: 12000 });
+            notify({ title: `${back.length === 1 ? back[0] : `${back.length} agents`} cut off by the restart`,
+              body: `${back.length > 1 ? back.join(", ") + ". " : ""}Still in the list (zz): open them to resume their session.`, level: "info", timeout: 12000 });
           }
         }
       } catch {}
@@ -717,11 +717,11 @@ export default class Agents extends View {
     });
   }
 
-  // El comando que lo trae de vuelta: sus mismos flags, sin la sesión vieja ni el prompt.
+  // The command that brings it back: its same flags, without the old session or the prompt.
   resumeCmd(r) {
     const q = (x) => /^[\w@%+=:,./-]+$/.test(x) ? x : `'${x.replace(/'/g, "'\\''")}'`;
     if (r.kind === "codex") {
-      // Con los mismos flags (modo yolo, sandbox, modelo…) que tenía.
+      // With the same flags it had (yolo mode, sandbox, model…).
       const CVAL = new Set(["-C", "--cd", "-i", "--image", "--local-provider", "-m", "--model", "-s", "--sandbox", "-a", "--ask-for-approval", "-p", "--profile", "-c", "--config", "--add-dir", "--enable", "--disable"]);
       const out = ["codex"];
       if (r.session) out.push("resume");
@@ -752,14 +752,14 @@ export default class Agents extends View {
     if (!r) return;
     delete this.sleeping[addr];
     localStorage.setItem("sleeping", JSON.stringify(this.sleeping));
-    // Si la sesión no dejó conversación (nunca charló), --resume no la encuentra: de cero.
+    // If the session left no conversation (never chatted), --resume can't find it: start from scratch.
     const check = r.kind === "claude-code" && r.session
       ? exec("sh", ["-c", `ls "$HOME"/.claude/projects/*/${r.session}.jsonl >/dev/null 2>&1`]).then((x) => x.code === 0)
       : Promise.resolve(true);
     check.then((ok) => exec("hc", ["send", addr, this.resumeCmd(ok ? r : { ...r, session: null })]));
   }
 
-  // Los dormidos como filas de la lista, al lado de los de su proyecto.
+  // Sleeping agents as list rows, next to their project's.
   withSleeping(list) {
     const live = new Set(terminals().filter((k) => k.state === "live").map((k) => k.address));
     const ps = new Set(panes().map((p) => p.pane));
@@ -775,15 +775,15 @@ export default class Agents extends View {
     return out;
   }
 
-  // ✕ en un pedido: deja de ser pedido. Sus ramas pasan a colgar de la base del
-  // pedido (o quedan sueltas) y la rama se borra si no tiene worktree ni commits
-  // propios sin mergear (git branch -d, que no pierde nada); si no, queda como rama
-  // común. Pide un segundo clic para confirmar.
+  // ✕ on an epic: it stops being an epic. Its branches now hang from the epic's base
+  // (or are left without one) and the branch is deleted if it has no worktree and no
+  // unmerged commits of its own (git branch -d, which loses nothing); otherwise it stays
+  // as a plain branch. Asks for a second click to confirm.
   closeBtn(t, spaceId, b) {
     const sure = this.closing === b;
     return div().id(`close-${b}`).flex_none().px(5).h(18).rounded(4).flex().items_center().text_size(sure ? 10.5 : 12).font_semibold()
       .text_color(sure ? t.blocked : t.dim).when(sure, (el) => el.bg(`${t.blocked}22`)).cursor_pointer()
-      .tooltip(sure ? "clic de nuevo para cerrar el pedido" : "cerrar el pedido")
+      .tooltip(sure ? "click again to close the epic" : "close the epic")
       .hover((s) => s.bg(`${t.blocked}33`).text_color(t.blocked))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click((_e, cx) => {
@@ -792,7 +792,7 @@ export default class Agents extends View {
         this.closing = null;
         cx.spawn(async (cx) => this.closePedido(spaceId, b, cx));
       })
-      .child(sure ? "¿cerrar?" : "✕");
+      .child(sure ? "close?" : "✕");
   }
 
   async closePedido(spaceId, b, cx) {
@@ -811,14 +811,14 @@ export default class Agents extends View {
       await git(["config", "--unset", `branch.${b}.herdrFrom`]);
       const wt = (await git(["worktree", "list", "--porcelain"])).out.split("\n").includes(`branch refs/heads/${b}`);
       let note = "";
-      if (wt) note = "La rama queda: tiene un worktree.";
+      if (wt) note = "The branch stays: it has a worktree.";
       else {
         const del = await git(["branch", "-d", b]);
-        note = del.ok ? "La rama se borró (no tenía nada sin mergear)." : "La rama queda: tiene commits sin mergear.";
+        note = del.ok ? "The branch was deleted (nothing unmerged)." : "The branch stays: it has unmerged commits.";
       }
-      notify({ title: `Pedido ${short} cerrado`, body: note, level: "info", timeout: 8000 });
+      notify({ title: `Request ${short} closed`, body: note, level: "info", timeout: 8000 });
     } catch (e) {
-      notify({ title: `No pude cerrar el pedido ${short}`, body: String(e), level: "error" });
+      notify({ title: `Couldn't close epic ${short}`, body: String(e), level: "error" });
     }
     setShared("herdr-mod.chains.at", Date.now());
     cx.notify();
@@ -829,8 +829,8 @@ export default class Agents extends View {
   }
 
   // Live sub-agents of `addr`, depth first, each with the tree lines in front of it.
-  // despues de los de hc, los compañeros de su equipo de Claude. No son
-  // terminales: viven dentro de la del agente (shift+flecha abajo para verlos).
+  // After the hc ones, its Claude teammates. They aren't
+  // terminals: they live inside the agent's (shift+down arrow to see them).
   tree(all, addr, lead = []) {
     const program = all.find((x) => x.address === addr)?.program;
     const mates = (this.teams?.[addr] ?? []).map((m) => ({ address: `${addr}~${m.name}`, name: m.name, status: m.status, program, mate: m, lead: addr }));
@@ -865,7 +865,7 @@ export default class Agents extends View {
       .on_click(() => {
         if (!k.mate) return this.peek(k.address);
         run("pane.focus", { terminal: k.lead });
-        setShared("herdr-mod.tip", { items: [{ key: "⇧↓", text: "en Claude, pasar de un compañero a otro" }], at: Date.now() });
+        setShared("herdr-mod.tip", { items: [{ key: "⇧↓", text: "in Claude, switch between teammates" }], at: Date.now() });
       })
       .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
@@ -889,7 +889,7 @@ export default class Agents extends View {
   }
 
   render(cx) {
-    const PANES = panes(); // una vez por dibujo: cada llamada copia todos los panes
+    const PANES = panes(); // once per render: each call copies every pane
     const t = theme();
     if (props()?.sortMenu) return this.sortMenu(t);
     const collapsed = narrow();
@@ -948,20 +948,20 @@ export default class Agents extends View {
     // agent's own title, never an automatic tab number unless two rows would
     // otherwise read the same.
     const tabs = spaces().flatMap(s => s.tabs);
-    // el worktree (la rama viva del pane); el logo ya dice que agente es.
-    // Si le pusiste nombre (el de su pestaña: doble clic o ✎), ese.
+    // the worktree (the pane's live branch); the logo already says which agent it is.
+    // If you named it (its tab's name: double-click or ✎), that one.
     const tabById = new Map(tabs.map((x) => [x.id, x]));
     const custom = (a) => (tabById.get(a.tab)?.named ? tabById.get(a.tab).name : null);
-    // Si no, el nombre del worktree (~/.herdr/worktrees/<repo>/<nombre>: el que escribiste al
-    // crearlo), que no cambia aunque el agente pase a otra rama (p. ej. /pr crea feat/...).
-    // Fuera de un worktree, la rama.
+    // Otherwise the worktree's name (~/.herdr/worktrees/<repo>/<name>: the one you typed when
+    // creating it), which doesn't change even if the agent moves to another branch (e.g. /pr creates feat/...).
+    // Outside a worktree, the branch.
     const wtName = (a) => (PANES.find(p => p.pane === a.pane)?.cwd ?? "").match(/\/\.herdr\/worktrees\/[^/]+\/([^/]+)/)?.[1] ?? null;
-    // Si la rama es la del worktree (con / en vez de -, como rv/PR-12), la rama, que se lee mejor.
+    // If the branch is the worktree's (with / instead of -, like rv/PR-12), the branch, which reads better.
     const label = (a) => {
       const br = PANES.find(p => p.pane === a.pane)?.branch?.replace(prefixRe(), "");
       const wt = wtName(a);
-      // El que le pusiste a la sesión de Claude con /rename (no el que inventa Claude) va
-      // antes que el del worktree.
+      // The one you gave the Claude session with /rename (not one Claude made up) comes
+      // before the worktree's.
       const st = this.lk?.[a.address];
       const sess = st?.name_source && st.name_source !== "derived" ? st.session_name : null;
       return custom(a) || sess || (wt && br && br.replace(/\//g, "-") === wt ? br : wt) || br || a.program?.name || a.title || "";
@@ -1033,11 +1033,11 @@ export default class Agents extends View {
           cx.notify();
         })
         .on_click((e, cx) => {
-          if (e.click_count === 2) return run("tab.rename", { id: a.tab }); // doble clic: le cambio el nombre
+          if (e.click_count === 2) return run("tab.rename", { id: a.tab }); // double-click: rename it
           if (a.sleeping) { this.wake(a.address); cx.notify(); }
           run("pane.focus", { pane: a.pane }); rowTip(a);
         })
-        .when(a.sleeping, el => el.tooltip("Dormido (2 h sin uso). Clic: lo despierto donde estaba."))
+        .when(a.sleeping, el => el.tooltip("Asleep (unused for 2 h). Click to wake it where it left off."))
         .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`)
           .when(subs.length > 0, el => el.on_click((_e, cx) => {
             cx.stop_propagation();
@@ -1047,7 +1047,7 @@ export default class Agents extends View {
         .child(h_flex().flex_1().min_w(0).gap(5).items_center()
           .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(a.sleeping ? t.dim : idle ? t.muted : t.foreground).child(name))
           .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`)))
-          // Si el nombre no es la rama (le pusiste uno, o el agente cambió de rama), la rama al lado, chica.
+          // If the name isn't the branch (you named it, or the agent switched branches), the branch next to it, small.
           .when(!full && Boolean(branchOf(a)) && ![branchOf(a).replace(prefixRe(), ""), branchOf(a).replace(prefixRe(), "").replace(/\//g, "-")].includes(label(a)), el => el.child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.dim).child(branchOf(a).replace(prefixRe(), "")))))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
@@ -1058,7 +1058,7 @@ export default class Agents extends View {
         .when(!full, el => el.children(this.branchTags(t, a.space, branchOf(a))))
         .when(!full && !collapsed, el => this.draggable(el, t, { addr: a.address, b: branchOf(a), space: a.space }, `a:${a.address}`))
         .when(this.hovered === a.address && !a.sleeping, el => el.child(div().id(`rename-${a.address}`).flex_none().px(3).rounded(4).text_size(12).text_color(t.dim)
-          .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Cambiar el nombre (o doble clic). Vacío: vuelve al de la rama.")
+          .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Rename (or double-click). Empty: back to the branch name.")
           .on_click((_e, cx) => { cx.stop_propagation(); run("tab.rename", { id: a.tab }); }).child("✎")))
         .when(this.hovered === a.address, el => el.child(pin))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
@@ -1075,8 +1075,8 @@ export default class Agents extends View {
       else groups.push({ id, label: byPriority ? SECTION[r] : a.space_name || "", status: byPriority ? SECTION_STATUS[r] : null, members: [a] });
     }
 
-    // en la vista por proyecto, los agentes como arbol de ramas. Cada
-    // rama cuelga de su base; una base sin agente (el pedido) va en gris.
+    // in the per-project view, agents as a branch tree. Each
+    // branch hangs from its base; a base without an agent (the epic) is grayed.
     const SHORT = (b) => (b ?? "").replace(prefixRe(), "");
     const issueN = (b) => Number((b.match(/IS-(\d+)/) ?? [])[1]) || 1e9;
     const treeOf = (g) => {
@@ -1086,13 +1086,13 @@ export default class Agents extends View {
         if (!nodes.has(key)) { nodes.set(key, { key, branch, agents: [], kids: [] }); order.push(key); }
         return nodes.get(key);
       };
-      // Los pedidos primero, aunque todavia no les cuelgue nada.
+      // Requests first, even if nothing hangs from them yet.
       for (const p of [...chain.pedidos].sort((x, y) => issueN(x) - issueN(y))) node(`b:${p}`, p);
       for (const a of g.members) {
         const br = PANES.find((p) => p.pane === a.pane)?.branch;
         let n = node(br ? `b:${br}` : `a:${a.address}`, br);
         n.agents.push(a);
-        // Subir por las bases para que el arbol no quede cortado.
+        // Walk up the bases so the tree isn't cut off.
         for (let b = br, seen = new Set(); b && chain.base[b] && !seen.has(b); b = chain.base[b]) { seen.add(b); node(`b:${chain.base[b]}`, chain.base[b]); }
       }
       for (const n of nodes.values()) {
@@ -1107,13 +1107,13 @@ export default class Agents extends View {
         const cont = depth === 0 ? [] : [last ? "blank" : "pipe"];
         const kidsCont = n.kids.length ? "pipe" : "blank";
         if (n.agents.length === 0) out.push({ ghost: n.branch, pedido: chain.pedidos.has(n.branch), prefix: [...prefix, ...own] });
-        // sub: la sangria de sus sub-agentes (hc run): un nivel mas adentro, y la
-        // linea sigue si la rama tiene hijas abajo.
+        // sub: the indent for its sub-agents (hc run): one level deeper, and the
+        // line continues if the branch has children below.
         n.agents.forEach((a, i) => out.push({ a, prefix: i === 0 ? [...prefix, ...own] : [...prefix, ...cont], sub: [...prefix, ...cont, kidsCont] }));
         n.kids.forEach((k, i) => walk(k, [...prefix, ...cont], i === n.kids.length - 1, depth + 1));
       };
       roots.forEach((r) => walk(r, [], true, 0));
-      // Agentes metidos a mano adentro de otro (solo a la vista): van abajo de ese, un nivel adentro.
+      // Agents placed by hand inside another (view only): they go under it, one level in.
       const at = new Map(out.filter((e) => e.a).map((e) => [e.a.address, e]));
       const parentOf = (e) => {
         const p = e.a && this.parents[e.a.address];
@@ -1128,7 +1128,7 @@ export default class Agents extends View {
       const put = (e) => {
         res.push(e);
         const kids = e.a ? kidsOf.get(e.a.address) ?? [] : [];
-        // Si la rama tiene hijas abajo, su linea sigue: el hijo va una columna mas adentro.
+        // If the branch has children below, its line continues: the child goes one column further in.
         if (!kids.length) return;
         const lane = e.sub.at(-1) === "blank" ? e.sub.slice(0, -1) : e.sub;
         kids.forEach((k, i) => {
@@ -1163,7 +1163,7 @@ export default class Agents extends View {
     // A group's header; it folds the group. Folded, it says how many and the most urgent state.
     const header = (g) => {
       const open = !this.folded.has(g.id);
-      // una línea arriba de cada proyecto (menos el primero) para ver dónde empieza.
+      // a line above each project (except the first) to see where it starts.
       const first = groups[0]?.id === g.id;
       const top = g.members.reduce((m, a) => ((RANK[a.status] ?? 0) > (RANK[m] ?? 0) ? a.status : m), null);
       return h_flex()
@@ -1174,7 +1174,7 @@ export default class Agents extends View {
         .flex_none()
         .gap(6)
         .items_center()
-        // el nombre del proyecto bien visible.
+        // the project name clearly visible.
         .text_size(12.5)
         .font_semibold()
         .cursor_pointer()
@@ -1188,12 +1188,12 @@ export default class Agents extends View {
           .on_mouse_up("left", (_e, cx) => this.dropOn(null, cx))
           .when(Boolean(this.drag?.moving) && this.drag.over === null && this.drag.space === g.id.slice(3) && this.canDrop(this.drag, null),
             (el) => el.rounded(6).bg(`${t.accent}33`).child(div().text_size(10.5).text_color(t.accent)
-              .child(this.drag.addr && this.parents[this.drag.addr] ? "soltar: sacarlo de adentro" : "soltar: sin base"))))
+              .child(this.drag.addr && this.parents[this.drag.addr] ? "drop: take it out" : "drop: no base"))))
         .when(!first, (el) => el.mt(8).border_t(1).border_color(t.border).pt(14).h(38))
         .child(div().truncate().text_color(t[g.status] ?? (byPriority ? t.muted : t.foreground)).child(g.label))
         .when(g.id.startsWith("sp-") && g.members.some((a) => !a.sleeping) && g.members.filter((a) => !a.sleeping).every((a) => this.lk?.[a.address]?.missing),
           (el) => el.child(div().id(`nolk-${g.id}`).flex_none().px(5).rounded(4).text_size(10).font_medium().bg(t.raised).text_color(t.muted)
-            .tooltip("Lo informa una extensión de agentes.py").child(this.lk?.[g.members.find((a) => !a.sleeping)?.address]?.missing ?? "")))
+            .tooltip("Reported by an agentes.py extension").child(this.lk?.[g.members.find((a) => !a.sleeping)?.address]?.missing ?? "")))
         .when(byPriority || !open, (el) => el.child(div().text_color(t.dim).child(String(g.members.length))))
         .child(div().flex_1())
         .when(!open, (el) => el
@@ -1202,8 +1202,8 @@ export default class Agents extends View {
     };
     const asTree = (g) => !byPriority && g.id.startsWith("sp-");
     const trees = new Map(groups.filter(asTree).map((g) => [g.id, treeOf(g)]));
-    // ⌘] / ⌘[ siguen el orden del arbol.
-    // El nombre de cada agente, para que el footer, ⌘J, ⌘K y Equipo digan lo mismo.
+    // ⌘] / ⌘[ follow the tree order.
+    // Each agent's name, so the footer, ⌘J, ⌘K and Team say the same.
     const names = Object.fromEntries(list.map((a) => [a.address, label(a)]));
     const namesJson = JSON.stringify(names);
     if (namesJson !== this.namesJson) { this.namesJson = namesJson; this.names = names; setShared("herdr-mod.names", names); }
@@ -1216,7 +1216,7 @@ export default class Agents extends View {
 
     return v_flex()
       .id("agents-root")
-      // Soltar fuera de una rama, o salir de la lista, cancela el arrastre.
+      // Dropping outside a branch, or leaving the list, cancels the drag.
       .on_mouse_up("left", (_e, cx) => { if (this.drag) { this.drag = null; cx.notify(); } })
       .on_hover((on, cx) => { if (!on && this.drag) { this.drag = null; cx.notify(); } })
       .size_full()

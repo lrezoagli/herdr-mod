@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Compañeros de los equipos de Claude Code (agent teams), por terminal de hc.
+"""Teammates of Claude Code teams (agent teams), per hc terminal.
 
-Claude guarda cada equipo en ~/.claude/teams/<equipo>/config.json: el pid del
-agente principal (leadProcess.pid) y los compañeros vivos (members; al cerrarse
-uno, sale de la lista). El pid es el del programa que hc tiene en primer plano
-en esa terminal (`hc get <t>` -> foreground.pid).
+Claude stores each team in ~/.claude/teams/<team>/config.json: the pid of the
+lead agent (leadProcess.pid) and the live teammates (members; when one closes,
+it drops off the list). The pid is that of the program hc has in the foreground
+in that terminal (`hc get <t>` -> foreground.pid).
 
-Lo demas sale del transcript de cada compañero
-(~/.claude/projects/*/<sesion del lead>/subagents/agent-a<nombre>-*.jsonl):
-- status: si lo ultimo que escribio el modelo cerro el turno (end_turn) y no le
-  llego nada despues, esta libre ("idle"); si no, trabajando ("working").
-- activity: que esta haciendo ahora, en pocas palabras ("leyendo main.js").
-- recent: sus ultimas acciones, la mas nueva primero, con su hora (ms).
-- result: lo ultimo que contesto (el texto de su ultimo turno); said, su
-  primera frase (sin tablas ni titulos), para avisos y resumenes.
+Everything else comes from each teammate's transcript
+(~/.claude/projects/*/<lead session>/subagents/agent-a<name>-*.jsonl):
+- status: if the last thing the model wrote ended the turn (end_turn) and nothing
+  arrived after it, it is free ("idle"); otherwise working ("working").
+- activity: what it is doing now, in a few words ("reading main.js").
+- recent: its last actions, newest first, with their time (ms).
+- result: the last thing it answered (the text of its last turn); said, its
+  first sentence (no tables or headings), for notifications and summaries.
 
-Imprime {"t1b": [{"name", "color", "model", "status", "activity", "recent",
+Prints {"t1b": [{"name", "color", "model", "status", "activity", "recent",
 "result", "task", "since", "turn_at"}], ...}.
 """
 import glob
@@ -66,37 +66,37 @@ def base(p):
     return os.path.basename(str(p or "").rstrip("/")) or str(p or "")
 
 
-# Una accion del modelo, contada como la contaria una persona.
+# A model action, described the way a person would.
 def describe(name, inp):
     inp = inp or {}
     if name == "Read":
-        return f"leyendo {base(inp.get('file_path'))}"
+        return f"reading {base(inp.get('file_path'))}"
     if name in ("Edit", "MultiEdit", "NotebookEdit"):
-        return f"editando {base(inp.get('file_path') or inp.get('notebook_path'))}"
+        return f"editing {base(inp.get('file_path') or inp.get('notebook_path'))}"
     if name == "Write":
-        return f"escribiendo {base(inp.get('file_path'))}"
+        return f"writing {base(inp.get('file_path'))}"
     if name == "Bash":
         return short(inp.get("description") or f"$ {inp.get('command', '')}", 70)
     if name == "Grep":
-        return f"buscando “{short(inp.get('pattern'), 40)}”"
+        return f"searching “{short(inp.get('pattern'), 40)}”"
     if name == "Glob":
-        return f"buscando {short(inp.get('pattern'), 40)}"
+        return f"searching {short(inp.get('pattern'), 40)}"
     if name == "WebFetch":
-        return f"leyendo {urlparse(inp.get('url', '')).netloc or 'una página'}"
+        return f"reading {urlparse(inp.get('url', '')).netloc or 'a web page'}"
     if name == "WebSearch":
-        return f"buscando en la web “{short(inp.get('query'), 40)}”"
+        return f"searching the web “{short(inp.get('query'), 40)}”"
     if name == "SendMessage":
-        return f"escribiéndole a {inp.get('to', '?')}"
+        return f"messaging {inp.get('to', '?')}"
     if name in ("Agent", "Task"):
-        return f"lanzando {short(inp.get('description') or inp.get('name'), 40)}"
+        return f"launching {short(inp.get('description') or inp.get('name'), 40)}"
     if name in ("TodoWrite", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet"):
-        return "ordenando sus tareas"
+        return "organizing its tasks"
     if name.startswith("mcp__"):
-        return f"usando {name.split('__')[-1].replace('_', ' ')}"
+        return f"using {name.split('__')[-1].replace('_', ' ')}"
     return name
 
 
-# La primera frase de una respuesta: sin tablas, titulos ni bloques de codigo.
+# The first sentence of an answer: no tables, headings or code blocks.
 def first_said(text):
     lines = [l.strip() for l in text.splitlines()]
     prose = [l for l in lines if l and not l.startswith(("|", "#", "```", "---", ":--"))]
@@ -105,7 +105,7 @@ def first_said(text):
 
 
 def read_transcript(session, name):
-    out = {"status": "working", "activity": "arrancando", "recent": [], "result": "", "said": "", "turn_at": 0}
+    out = {"status": "working", "activity": "starting", "recent": [], "result": "", "said": "", "turn_at": 0}
     files = glob.glob(f"{HOME}/.claude/projects/*/{session}/subagents/agent-a{name}-*.jsonl")
     if not files:
         return out
@@ -124,7 +124,7 @@ def read_transcript(session, name):
         msg = m.get("message") or {}
         content = msg.get("content")
         if kind == "user":
-            # Un resultado de herramienta no es un mensaje nuevo: sigue el mismo turno.
+            # A tool result is not a new message: the same turn continues.
             if isinstance(content, list) and all(c.get("type") == "tool_result" for c in content if isinstance(c, dict)):
                 last_kind = "tool_result"
                 continue
@@ -140,14 +140,14 @@ def read_transcript(session, name):
                 out["result"] = c["text"].strip()
     out["recent"] = out["recent"][-RECENT:][::-1]
     if last_kind == "assistant_end":
-        out["status"], out["activity"] = "idle", "terminó"
+        out["status"], out["activity"] = "idle", "finished"
     else:
         out["status"] = "working"
         out["result"] = ""
         if last_kind == "assistant" and out["recent"]:
             out["activity"] = out["recent"][0]["text"]
         elif out["recent"]:
-            out["activity"] = "pensando"
+            out["activity"] = "thinking"
     out["said"] = first_said(out["result"])
     out["result"] = out["result"][:1200]
     return out

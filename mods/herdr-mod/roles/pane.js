@@ -39,7 +39,7 @@ export default class Pane extends View {
       .hover((s) => s.bg(t.hover).text_color(t.foreground))
       .on_click((_e, cx) => {
         cx.stop_propagation();
-        // cerrar pasa por el rol close (pregunta si hay un agente).
+        // Closing goes through the close role (asks if there's an agent).
         if (command === "pane.close") openOverlay({ mod: "herdr-mod", kind: "dialog", width: 440, height: 240, props: { role: "close", pane: args.pane } });
         else run(command, args);
       })

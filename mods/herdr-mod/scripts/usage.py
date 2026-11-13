@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Consumo de Claude Code y Codex leido de sus registros locales (idea de Orca).
+"""Claude Code and Codex usage read from their local logs (idea from Orca).
 
-- Claude: ~/.claude/projects/**/*.jsonl (sesiones y sub-agentes). Cada respuesta
-  del modelo trae message.usage (input, output, cache read, cache write 5m/1h) y
-  message.model; una misma respuesta se escribe en varias lineas con el mismo
-  message.id, se cuenta una vez.
-- Codex: ~/.codex/sessions/**/*.jsonl, eventos token_count (last_token_usage;
-  input incluye lo cacheado), task_started (un turno) y el modelo de turn_context.
+- Claude: ~/.claude/projects/**/*.jsonl (sessions and sub-agents). Each model
+  response carries message.usage (input, output, cache read, cache write 5m/1h) and
+  message.model; the same response is written on several lines with the same
+  message.id, and is counted once.
+- Codex: ~/.codex/sessions/**/*.jsonl, token_count events (last_token_usage;
+  input includes cached tokens), task_started (one turn) and the model from turn_context.
 
-Incremental: ~/.cache/herdr-limits/usage-index.json guarda hasta donde leyo cada
-archivo y los totales por dia, modelo y proyecto. Mira archivos tocados desde el 1
-del mes (o los ultimos 8 dias, lo que sea antes) y guarda 70 dias de totales.
+Incremental: ~/.cache/herdr-limits/usage-index.json stores how far each file was
+read and the totals per day, model and project. Looks at files touched since the 1st
+of the month (or the last 8 days, whichever is earlier) and keeps 70 days of totals.
 
-Costo estimado equivalente a API (USD por millon de tokens, tabla de Orca). Los
-modelos sin precio (y todo Codex) cuentan tokens pero no costo.
+Estimated API-equivalent cost (USD per million tokens, Orca's table). Models
+without a price (and all of Codex) count tokens but not cost.
 
-Imprime {"claude": {...}, "codex": {...}} con today, week (7 dias), daily (7),
-models y projects.
+Prints {"claude": {...}, "codex": {...}} with today, week (7 days), daily (7),
+models and projects.
 """
 import fcntl
 import glob
@@ -27,7 +27,7 @@ from datetime import datetime, timedelta
 
 HOME = os.path.expanduser("~")
 INDEX = f"{HOME}/.cache/herdr-limits/usage-index.json"
-SCAN_DAYS, KEEP_DAYS = 8, 70  # se lee desde el 1 del mes si es antes que 8 dias
+SCAN_DAYS, KEEP_DAYS = 8, 70  # reads from the 1st of the month if that is earlier than 8 days
 
 PRICES = {  # input, output, cache read, cache write 5m, cache write 1h
     "claude-fable-5-1": (10, 50, .25, 12.5, 20), "claude-fable-5": (10, 50, 1, 12.5, 20),
@@ -43,7 +43,7 @@ PRICES = {  # input, output, cache read, cache write 5m, cache write 1h
 
 def price(model):
     m = (model or "").lower()
-    # Exacto o con fecha (claude-opus-4-5-20251101); claude-sonnet-5-5 no es claude-sonnet-5.
+    # Exact or dated (claude-opus-4-5-20251101); claude-sonnet-5-5 is not claude-sonnet-5.
     for k in PRICES:
         if m == k or m.startswith(k + "-20"):
             return PRICES[k]
@@ -70,7 +70,7 @@ def bucket(idx, tool, day):
 
 
 def add(b, model, project, session, inp, out, cr, cw, cost):
-    m = b["models"].setdefault(model or "?", [0, 0, 0, 0, 0.0, 0])  # in, out, cr, cw, cost, sin precio
+    m = b["models"].setdefault(model or "?", [0, 0, 0, 0, 0.0, 0])  # in, out, cr, cw, cost, unpriced
     m[0] += inp; m[1] += out; m[2] += cr; m[3] += cw
     if cost is None:
         m[5] = 1
@@ -91,7 +91,7 @@ def new_lines(idx, path):
     with open(path, "rb") as fh:
         fh.seek(f["off"])
         data = fh.read()
-    cut = data.rfind(b"\n") + 1  # solo lineas completas
+    cut = data.rfind(b"\n") + 1  # complete lines only
     f["off"] += cut
     idx["files"][path] = f
     return data[:cut].decode("utf-8", "replace").splitlines()
@@ -193,7 +193,7 @@ def summary(idx, tool, days):
             projects[name] = projects.get(name, 0) + n
     s["sessions"] = len(sessions)
     s["total"] = s["in"] + s["out"] + s["cr"] + s["cw"]
-    # Del prompt que mando al modelo, cuanto salio de la cache (lo demas se escribio o se mando entero).
+    # Of the prompt sent to the model, how much came from the cache (the rest was written or sent in full).
     sent = s["in"] + s["cr"] + s["cw"]
     s["cache_rate"] = round(100 * s["cr"] / sent, 1) if sent else None
     s["cost"] = round(s["cost"], 2)
@@ -203,7 +203,7 @@ def summary(idx, tool, days):
 
 
 def main():
-    # La barra y el panel lo corren a la vez: uno por vez sobre el indice.
+    # The bar and the panel run it at the same time: one at a time on the index.
     os.makedirs(os.path.dirname(INDEX), exist_ok=True)
     lock = open(INDEX + ".lock", "w")
     fcntl.flock(lock, fcntl.LOCK_EX)
@@ -217,7 +217,7 @@ def main():
     since = min(time.time() - SCAN_DAYS * 86400, month_start.timestamp())
     scan_claude(idx, since)
     scan_codex(idx, since)
-    # Podar: dias viejos, ids vistos de esos dias y archivos que ya no se tocan.
+    # Prune: old days, seen ids from those days and files no longer touched.
     oldest = (datetime.now() - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     idx["days"] = {d: v for d, v in idx["days"].items() if d >= oldest}
     scan_from = (datetime.fromtimestamp(since) - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -230,7 +230,7 @@ def main():
     os.replace(tmp, INDEX)
 
     week = [(datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(6, -1, -1)]
-    # El mes en curso, del 1 a hoy, y cuantos dias tiene (para proyectar el cierre).
+    # The current month, from the 1st to today, and how many days it has (to project the month-end total).
     today = datetime.now()
     month = [(month_start + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(today.day)]
     month_len = ((month_start + timedelta(days=32)).replace(day=1) - month_start).days

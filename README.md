@@ -14,8 +14,7 @@ It turns Herdr into a cockpit for agent work:
 ![herdr-mod overview](docs/images/overview.png)
 
 > The screenshots are illustrations with made-up data (`acme/*`). They are generated from
-> `docs/mockups/gen.py` and follow the real layout, colors and texts. The UI itself is in
-> Spanish.
+> `docs/mockups/gen.py` and follow the real layout, colors and texts.
 
 ## Contents
 
@@ -45,7 +44,7 @@ grouped by project and drawn as a tree of git branches:
 - **The tree follows your branches.** A branch hangs from the branch it was started
   from. That is stored in git as `branch.<name>.herdrBase`, so the tree survives restarts.
 - **Sub-agents.** Agents started by other agents (`hc` sub-agents) appear one level in.
-- **Requests.** A *request* (`pedido`, an issue big enough to need several branches)
+- **Epics.** An *epic* (an issue big enough to need several branches)
   shows as a grey branch without an agent. Its child branches hang from it.
 - **Stable names.** An agent keeps the name you gave it when you created it. If it later
   switches branches (for example, when it opens a PR with a conventional branch name),
@@ -70,17 +69,17 @@ The top bar shows the project's tabs and these buttons:
 - **Claude / Codex.** They ask for a name and open the agent in a **new git worktree**
   (`~/.herdr/worktrees/<repo>/<name>`), as a new tab of the current project. Type an issue
   number (`42`) and you get the branch `<prefix>IS-42`.
-- **Files, Changes, GitHub and Equipo** toggle the right-hand panels. The GitHub button
-  shows how many things are waiting for you.
+- **Files and GitHub** toggle the right-hand panels. The GitHub button shows how many
+  things are waiting for you. The team panel has no button: ⌘⇧E toggles it.
 
 ### GitHub panel
 
 The panel follows the project you are in and has three sections.
 
 **Issues** lists the current repo's issues, yours or everyone's. Each one has three
-buttons: start Claude or Codex in its worktree, or mark it as a request.
+buttons: start Claude or Codex in its worktree, or mark it as an epic.
 
-**My PRs** (`Mis PRs`) lists your open PRs across **all** your repos. The current
+**My PRs** lists your open PRs across **all** your repos. The current
 project's PRs come first, in their own box, and the rest are grouped by repo:
 
 ![My PRs](docs/images/github-prs.png)
@@ -97,10 +96,10 @@ request you:
 
 ![Reviews](docs/images/github-reviews.png)
 
-- **Review requested** (`Te pidieron review`): includes "requested again".
-- **They answered** (`Te respondieron`): you reviewed, and then the author pushed commits
+- **Review requested**: includes "requested again".
+- **They answered**: you reviewed, and then the author pushed commits
   or replied.
-- **Already reviewed** (`Ya revisaste`): each one says what you left (commented,
+- **Already reviewed**: each one says what you left (commented,
   approved, changes requested).
 - **Drafts** (`Borradores`).
 
@@ -150,7 +149,7 @@ and project.
 ### Search (⌘K) and team panel
 
 - **⌘K** searches every agent in every project by project, branch, program or status.
-- The **Equipo** panel shows Claude agent teams: one card per teammate, with its task,
+- The **Team** panel (⌘⇧E) shows Claude agent teams: one card per teammate, with its task,
   what it is doing and what it answered.
 
 ### Clean up worktrees (⌘⇧K)
@@ -338,7 +337,7 @@ Please read this before using the review buttons.
 ## Building it from scratch
 
 [RECIPE.md](RECIPE.md) is a brief for building this from an empty folder, in the format
-herdr.dev uses (in Spanish).
+herdr.dev uses.
 
 ## License
 

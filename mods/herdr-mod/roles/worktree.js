@@ -1,9 +1,9 @@
-// Agente en worktree, como tab del proyecto (space). Lo abren los botones
-// Claude/Codex del rol tabs con props { space, id, label, argv, icon }; el +
-// del arbol de agentes con { space, base, choose: true } (se elige Claude o Codex aca).
-// Pide el nombre del worktree (es la rama), crea el checkout en
-// ~/.herdr/worktrees/<repo>/<nombre> desde el HEAD del checkout principal (si
-// la rama ya existe la usa) y abre un tab con el agente (la barra muestra agente + rama).
+// Agent in a worktree, as a tab of the project (space). Opened by the tabs role's
+// Claude/Codex buttons with props { space, id, label, argv, icon }; by the agent
+// tree's + with { space, base, choose: true } (Claude or Codex is picked here).
+// Asks for the worktree name (it's the branch), creates the checkout at
+// ~/.herdr/worktrees/<repo>/<name> from the main checkout's HEAD (reusing the
+// branch if it exists) and opens a tab with the agent (the bar shows agent + branch).
 import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { run, props, closeOverlay, theme, spaces, panes, exec, home, setShared } from "herdr";
@@ -18,8 +18,8 @@ const AGENTS = {
 };
 
 const slug = (b) => b.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
-// Convencion de ramas: un numero es un issue -> <branchPrefix>IS-<n> (config.json),
-// carpeta IS-<n>. Cualquier otro texto es el nombre de la rama tal cual.
+// Branch convention: a number is an issue -> <branchPrefix>IS-<n> (config.json),
+// folder IS-<n>. Any other text is used as the branch name as is.
 export const names = (raw) => /^#?\d+$/.test(raw)
   ? { branch: `${cfg().branchPrefix}IS-${raw.replace("#", "")}`, folder: `IS-${raw.replace("#", "")}` }
   : { branch: raw, folder: slug(raw.replace(prefixRe(), "")) };
@@ -30,8 +30,8 @@ export default class AgentWorktree extends View {
     this.agent = AGENTS[props()?.id] ?? AGENTS.claude;
     this.error = "";
     this.busy = false;
-    this.repo = undefined; // undefined: buscando; null: no es repo
-    this.input = InputState.new({ value: "", placeholder: "número de issue (12 → IS-12) o nombre de rama" });
+    this.repo = undefined; // undefined: looking; null: not a repo
+    this.input = InputState.new({ value: "", placeholder: "issue number (12 → IS-12) or branch name" });
     this.input.on("change", (_e, cx) => { this.text = this.input.value(); this.error = ""; cx.notify(); });
     this.input.on("submit", (_e, cx) => this.go(cx));
     this.input.focus();
@@ -76,23 +76,23 @@ export default class AgentWorktree extends View {
   async create() {
     const p = props();
     const raw = this.text.trim();
-    if (!raw) return "Poné un número de issue o un nombre.";
+    if (!raw) return "Enter an issue number or a name.";
     const { branch, folder } = names(raw);
-    if (!(await this.git(this.repo.main, ["check-ref-format", "--branch", branch])).ok) return `"${branch}" no sirve como nombre de rama.`;
+    if (!(await this.git(this.repo.main, ["check-ref-format", "--branch", branch])).ok) return `"${branch}" isn't a valid branch name.`;
     const path = `${this.repo.root}/${folder}`;
     const exists = (await this.git(this.repo.main, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`])).ok;
     const add = await this.git(this.repo.main, exists ? ["worktree", "add", path, branch] : ["worktree", "add", "-b", branch, path, p.base ?? "HEAD"]);
-    if (!add.ok) return add.err || "git worktree add falló.";
-    // La cadena del pedido vive en git: el arbol de agentes la lee de aca.
+    if (!add.ok) return add.err || "git worktree add failed.";
+    // The request chain lives in git: the agent tree reads it from here.
     if (p.base && !exists) {
       const sha = await this.git(this.repo.main, ["rev-parse", p.base]);
       await this.git(this.repo.main, ["config", `branch.${branch}.herdrBase`, p.base]);
       if (sha.ok) await this.git(this.repo.main, ["config", `branch.${branch}.herdrFrom`, sha.out]);
       setShared("herdr-mod.chains.at", Date.now());
     }
-    // El agente se llama como lo escribiste, para siempre: la pestaña con ese nombre y,
-    // si es Claude, su sesión también (-n). Si después cambia de rama, la lista la
-    // muestra chica al lado. El proyecto se llama como el repo aunque el primer tab cambie.
+    // The agent keeps the name you typed, for good: the tab gets that name and,
+    // for Claude, its session too (-n). If it later switches branch, the list shows
+    // it small alongside. The project is named after the repo even if the first tab changes.
     const name = /^#?\d+$/.test(raw) ? folder : raw.replace(prefixRe(), "");
     const space = this.space();
     if (space && !space.named) run("space.rename", { id: space.id, name: this.repo.name });
@@ -107,10 +107,10 @@ export default class AgentWorktree extends View {
     const r = this.repo;
     const tilde = (path) => (r?.userHome && path?.startsWith(r.userHome) ? `~${path.slice(r.userHome.length)}` : path);
     const detail = r === undefined ? "…"
-      : r === null ? `${tilde(this.folder) ?? "Este space"} no es un repo git.`
-      : `${this.text.trim() ? names(this.text.trim()).branch : "Rama nueva"} ${p.base ? `encima de ${p.base}` : `desde el HEAD de ${r.name}`} (si ya existe, se usa esa). Checkout en ${tilde(r.root)}/${this.text.trim() ? names(this.text.trim()).folder : "…"}`;
+      : r === null ? `${tilde(this.folder) ?? "This space"} isn't a git repo.`
+      : `${this.text.trim() ? names(this.text.trim()).branch : "New branch"} ${p.base ? `on top of ${p.base}` : `from ${r.name}'s HEAD`} (reused if it exists). Checkout at ${tilde(r.root)}/${this.text.trim() ? names(this.text.trim()).folder : "…"}`;
     const a = p.choose ? this.agent : { label: p.label, icon: p.icon };
-    // Con choose: Claude o Codex (clic, o tab para cambiar).
+    // With choose: Claude or Codex (click, or tab to switch).
     const pick = (x) => h_flex().id(`pick-${x.id}`).h(26).px(9).gap(6).items_center().rounded(7).cursor_pointer()
       .text_size(12.5).font_semibold().text_color(t[x.color]).border(1)
       .bg(this.agent.id === x.id ? `${t[x.color]}33` : t.popover).border_color(this.agent.id === x.id ? t[x.color] : t.border)
@@ -124,13 +124,13 @@ export default class AgentWorktree extends View {
       .size_full().p(16).gap(10).bg(t.popover).text_size(13)
       .child(h_flex().gap(8).items_center()
         .when(Boolean(a.icon), (el) => el.child(image(a.icon).size(16)))
-        .child(div().flex_1().font_semibold().text_color(t.foreground).child(`${a.label ?? "Agente"} en un worktree${p.base ? ` encima de ${p.base.replace(prefixRe(), "")}` : r ? ` de ${r.name}` : ""}`)))
+        .child(div().flex_1().font_semibold().text_color(t.foreground).child(`${a.label ?? "Agent"} in a worktree${p.base ? ` on top of ${p.base.replace(prefixRe(), "")}` : r ? ` of ${r.name}` : ""}`)))
       .when(Boolean(p.choose), (el) => el.child(h_flex().gap(6).items_center().child(pick(AGENTS.claude)).child(pick(AGENTS.codex))
-        .child(div().text_size(11).text_color(t.dim).child("tab cambia"))))
+        .child(div().text_size(11).text_color(t.dim).child("tab switches"))))
       .child(div().text_color(t.muted).child(detail))
       .when(Boolean(r), (el) => el.child(Input.new(this.input).h(32).px(10).items_center().rounded(6).border(1).border_color(t.accent).bg(t.background).text_color(t.foreground)))
       .when(Boolean(this.error), (el) => el.child(div().text_color(t.blocked).child(this.error)))
       .child(div().flex_1())
-      .child(h_flex().justify_end().text_size(11).text_color(t.dim).child(this.busy ? "creando…" : r ? "↵ crear · esc cancelar" : "esc cerrar"));
+      .child(h_flex().justify_end().text_size(11).text_color(t.dim).child(this.busy ? "creating…" : r ? "↵ create · esc cancel" : "esc close"));
   }
 }

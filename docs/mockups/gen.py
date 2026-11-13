@@ -103,7 +103,7 @@ def agents_list():
 {agent("IS-57", "1h", "idle", ("elbow",), prog="cx")}
 {agent("reviewer", "6m", "working", ("blank", "elbow"))}
 {head("web")}
-{agent("IS-12 billing", "", "", ghost=True, tags=chip("pedido", "#6c6d72"))}
+{agent("IS-12 billing", "", "", ghost=True, tags=chip("epic", "#6c6d72"))}
 {agent("IS-13", "25m", "blocked", ("tee",))}
 {agent("IS-14", "4m", "working", ("elbow",), branch="feat/invoices-pdf", hover=True)}
 {head("mobile")}
@@ -128,7 +128,7 @@ def tabs_bar():
 <div class="row" style="gap:6px;height:24px;padding:0 9px;border-radius:6px;background:#2b2823;border:1px solid #d9775755;color:#d97757;font-size:12px">{CL(12)}Claude</div>
 <div class="row" style="gap:6px;height:24px;padding:0 9px;border-radius:6px;background:#22262e;border:1px solid #7aa2f755;color:#7aa2f7;font-size:12px">{CX(12)}Codex</div>
 <span class="dim">+</span><div style="width:14px"></div>
-<div class="row" style="gap:16px">{tool("Files")}{tool("Changes")}{tool("GitHub", "3")}{tool("Equipo")}</div></div>'''
+<div class="row" style="gap:16px">{tool("Files")}{tool("GitHub", "3")}</div></div>'''
 
 
 def terminal():
@@ -164,27 +164,27 @@ def pr_row(num, title, when, chips, button="", needs=None):
 def gh_header(section):
     seg = lambda id_, label, n, c: f'<div class="row" style="flex:1;height:26px;justify-content:center;gap:5px;border-radius:6px;{"background:var(--sel);color:var(--fg)" if id_ == section else "color:var(--muted)"};font-size:12.75px">{label}{f"<span style=padding:0_5px;border-radius:8px;font-size:10.5px;font-weight:600;background:{c}33;color:{c}>{n}</span>".replace("_", " ") if n else ""}</div>'
     return f'''<div class="row" style="height:38px;padding:0 12px;gap:8px;border-bottom:1px solid var(--border)"><span class="muted">⊙</span><b style="font-size:13.5px">acme/api</b><span class="dim">↗</span><div style="flex:1"></div><span class="dim">↻</span></div>
-<div class="row" style="padding:8px 8px 0;gap:4px">{seg("issues", "Issues", 0, "")}{seg("prs", "Mis PRs", 3, "#e5c07b")}{seg("reviews", "Reviews", 2, "#c678dd")}</div>
-<div class="row dim" style="padding:6px 12px 0;font-size:11.75px;justify-content:space-between"><span>todos tus repos</span><span>recién</span></div>'''
+<div class="row" style="padding:8px 8px 0;gap:4px">{seg("issues", "Issues", 0, "")}{seg("prs", "My PRs", 3, "#e5c07b")}{seg("reviews", "Reviews", 2, "#c678dd")}</div>
+<div class="row dim" style="padding:6px 12px 0;font-size:11.75px;justify-content:space-between"><span>all your repos</span><span>just now</span></div>'''
 
 
 def repo_head(name, n, toca=0, color="var(--muted)"):
-    return f'<div class="row" style="padding:12px 12px 5px;gap:6px"><span style="font-size:11px;font-weight:600;color:{color}">{name.upper()} · {n}</span>{f"<span style=font-size:10.5px;color:var(--ansi3)>te toca {toca}</span>" if toca else ""}</div>'
+    return f'<div class="row" style="padding:12px 12px 5px;gap:6px"><span style="font-size:11px;font-weight:600;color:{color}">{name.upper()} · {n}</span>{f"<span style=font-size:10.5px;color:var(--ansi3)>your turn: {toca}</span>" if toca else ""}</div>'
 
 
 def gh_prs():
     here = f'''<div class="col" style="margin:8px 8px 0;border-radius:8px;overflow:hidden;border:1px solid #96b2d788;background:#96b2d714">
-<div style="padding:8px 12px 0;font-size:10.5px;font-weight:600;color:var(--accent)">ESTE PROYECTO</div>
+<div style="padding:8px 12px 0;font-size:10.5px;font-weight:600;color:var(--accent)">THIS PROJECT</div>
 {repo_head("api", 2, 1, "var(--accent)")}
-{pr_row("#212", "Rate limiting for public endpoints", "2h", [chip("2 hilos sin responder", "#e5c07b", True), chip("CI ✗", "#e06c75", True)], btn("/pr-fix", "#c678dd"), "#e06c75")}
-{pr_row("#205", "Cache tenant settings in Redis", "1d", [chip("aprobado", "#8fcf7f"), chip("bots 1", "#6c6d72")])}
+{pr_row("#212", "Rate limiting for public endpoints", "2h", [chip("2 unanswered threads", "#e5c07b", True), chip("CI ✗", "#e06c75", True)], btn("/pr-fix", "#c678dd"), "#e06c75")}
+{pr_row("#205", "Cache tenant settings in Redis", "1d", [chip("approved", "#8fcf7f"), chip("bots 1", "#6c6d72")])}
 </div>'''
-    sep = '<div class="row" style="padding:26px 12px 2px;gap:8px"><span class="dim" style="font-size:11px;font-weight:600">OTROS PROYECTOS</span><div style="flex:1;height:1px;background:var(--border)"></div></div>'
+    sep = '<div class="row" style="padding:26px 12px 2px;gap:8px"><span class="dim" style="font-size:11px;font-weight:600">OTHER PROJECTS</span><div style="flex:1;height:1px;background:var(--border)"></div></div>'
     others = f'''{repo_head("web", 2, 1)}
-{pr_row("#88", "Invoices: download as PDF", "5h", [chip("cambios pedidos", "#e06c75", True)], btn("/pr-fix", "#c678dd"), "#e06c75")}
-{pr_row("#91", "Dark mode for the dashboard", "3d", [chip("esperando a @maria", "#a3a4a9"), chip("CI …", "#a3a4a9")])}
+{pr_row("#88", "Invoices: download as PDF", "5h", [chip("changes requested", "#e06c75", True)], btn("/pr-fix", "#c678dd"), "#e06c75")}
+{pr_row("#91", "Dark mode for the dashboard", "3d", [chip("waiting on @maria", "#a3a4a9"), chip("CI …", "#a3a4a9")])}
 {repo_head("mobile", 1)}
-{pr_row("#34", "Push notifications on iOS", "1w", [chip("conflicto", "#e06c75", True), chip("borrador", "#6c6d72")], "", "#e06c75")}'''
+{pr_row("#34", "Push notifications on iOS", "1w", [chip("conflict", "#e06c75", True), chip("draft", "#6c6d72")], "", "#e06c75")}'''
     return f'<div class="col" style="width:400px;background:var(--chrome);height:100%">{gh_header("prs")}{here}{sep}{others}</div>'
 
 
@@ -196,13 +196,13 @@ def rr_row(num, title, when, chips, needs=None):
 def gh_reviews():
     g = lambda t, n: f'<div style="padding:10px 12px 5px;font-size:11px;font-weight:600;color:var(--muted)">{t.upper()} · {n}</div>'
     return f'''<div class="col" style="width:400px;background:var(--chrome);height:100%">{gh_header("reviews")}
-{g("Te pidieron review", 1)}
-{rr_row("api #219", "Retry webhooks with exponential backoff", "1d", [chip("@sam", "#a3a4a9"), chip("+312 −40", "#a3a4a9"), chip("te lo volvieron a pedir", "#96b2d7", True)], "#e06c75")}
-{g("Te respondieron", 1)}
-{rr_row("web #95", "Split the checkout into steps", "3h", [chip("@maria", "#a3a4a9"), chip("comentaste", "#a3a4a9"), chip("te respondió: 2 respuestas en tus hilos, commits nuevos", "#96b2d7", True)], "#c678dd")}
-{g("Ya revisaste", 2)}
-{rr_row("infra #17", "Move staging to the new cluster", "2d", [chip("@leo", "#a3a4a9"), chip("aprobaste", "#8fcf7f")])}
-{rr_row("docs #8", "Document the public API limits", "4d", [chip("@sam", "#a3a4a9"), chip("pediste cambios", "#e5c07b")])}
+{g("Review requested", 1)}
+{rr_row("api #219", "Retry webhooks with exponential backoff", "1d", [chip("@sam", "#a3a4a9"), chip("+312 −40", "#a3a4a9"), chip("re-requested", "#96b2d7", True)], "#e06c75")}
+{g("They answered", 1)}
+{rr_row("web #95", "Split the checkout into steps", "3h", [chip("@maria", "#a3a4a9"), chip("you commented", "#a3a4a9"), chip("replied: 2 replies in your threads, new commits", "#96b2d7", True)], "#c678dd")}
+{g("Already reviewed", 2)}
+{rr_row("infra #17", "Move staging to the new cluster", "2d", [chip("@leo", "#a3a4a9"), chip("you approved", "#8fcf7f")])}
+{rr_row("docs #8", "Document the public API limits", "4d", [chip("@sam", "#a3a4a9"), chip("you requested changes", "#e5c07b")])}
 </div>'''
 
 
@@ -211,8 +211,8 @@ def footer():
 <span class="row" style="gap:5px">{CL(12)}<span style="color:#8fcf7f">72%</span></span><span class="row" style="gap:5px">{CX(12)}<span style="color:#8fcf7f">88%</span></span>
 <span class="dim">CPU</span><span>14%</span><span class="dim">RAM</span><span style="color:#e5c07b">58%</span><div style="flex:1"></div>
 <div class="row" style="height:24px;padding:0 14px;gap:8px;border-radius:8px;background:var(--accent);color:#101114;font-weight:600">{CL(12)}api › main</div>
-<span class="chip" style="background:var(--raised);color:var(--muted)">editando rate-limit.ts</span><div style="flex:1"></div>
-<span class="chip" style="background:#e5c07b26;color:#e5c07b">2 PRs con comentarios</span><span class="chip" style="background:#e06c7526;color:#e06c75">1 review pendiente</span></div>'''
+<span class="chip" style="background:var(--raised);color:var(--muted)">editing rate-limit.ts</span><div style="flex:1"></div>
+<span class="chip" style="background:#e5c07b26;color:#e5c07b">2 PRs with comments</span><span class="chip" style="background:#e06c7526;color:#e06c75">1 pending review</span></div>'''
 
 
 def page(body, w, h, extra=""):
@@ -236,25 +236,25 @@ def waiting():
 <span class="dim" style="width:18px">{i}</span><div style="width:11px;height:11px;border-radius:6px;background:{color}"></div>{ic}
 <div class="col" style="flex:1;min-width:0"><span class="dim">{space}</span><b>{name}</b><span class="muted" style="font-size:12.5px">{sub}</span></div>{buttons}</div>'''
     alert = lambda who, title, what, b: f'''<div class="row" style="height:54px;padding:0 16px;gap:12px"><span style="color:#e5c07b">◆</span><div class="col" style="flex:1"><span><b>{who}</b> <span class="muted">{title}</span></span><span class="dim" style="font-size:12.5px">{what}</span></div>{b}<span class="dim">✕</span></div>'''
-    inner = f'''<div class="row" style="height:48px;padding:0 18px;border-bottom:1px solid var(--border)"><b style="font-size:15px">Esperándote</b><div style="flex:1"></div><span class="dim" style="font-size:11px">⌘J · Esc</span></div>
+    inner = f'''<div class="row" style="height:48px;padding:0 18px;border-bottom:1px solid var(--border)"><b style="font-size:15px">Waiting on you (3)</b><div style="flex:1"></div><span class="dim" style="font-size:11px">⌘J · Esc</span></div>
 <div class="col" style="padding:8px">
-{row(1, "blocked", CL(16), "web", "IS-13", "pregunta: ¿borro las facturas de prueba?", btn("ir", "#96b2d7"))}
-{row(2, "done", CL(16), "api", "IS-42", "terminó", btn("ir", "#96b2d7"))}
-{row(3, "done", CX(16), "api", "IS-57", "terminó", btn("ir", "#96b2d7"))}
-<div style="padding:12px 16px 4px;font-size:11px;font-weight:600;color:var(--muted)">AVISOS · 2</div>
-{alert("web #88", "Invoices: download as PDF", "pidieron cambios · 1 comentario nuevo", btn("/pr-fix…", "#c678dd"))}
-{alert("api #219", "Retry webhooks with exponential backoff", "@sam te pidió review otra vez · +312 −40", btn("/pr-review…", "#c678dd"))}
+{row(1, "blocked", CL(16), "web", "IS-13", "asking: delete the test invoices?", btn("go to", "#96b2d7"))}
+{row(2, "done", CL(16), "api", "IS-42", "done", btn("go to", "#96b2d7"))}
+{row(3, "done", CX(16), "api", "IS-57", "done", btn("go to", "#96b2d7"))}
+<div style="padding:12px 16px 4px;font-size:11px;font-weight:600;color:var(--muted)">ALERTS · 2</div>
+{alert("web #88", "Invoices: download as PDF", "changes requested · 1 new comment", btn("/pr-fix…", "#c678dd"))}
+{alert("api #219", "Retry webhooks with exponential backoff", "@sam requested your review again · +312 −40", btn("/pr-review…", "#c678dd"))}
 </div>'''
     return dialog(inner, 760, 420)
 
 
 def close():
     inner = f'''<div class="col" style="height:100%;padding:18px;gap:12px;font-size:13px">
-<div class="row"><b style="font-size:15px;flex:1">¿Cerrar Claude Code?</b><span class="dim" style="font-size:11px">Esc</span></div>
-<div class="muted" style="flex:1">Claude Code en IS-14 (web). Está trabajando: se corta en el medio.</div>
+<div class="row"><b style="font-size:15px;flex:1">Close Claude Code?</b><span class="dim" style="font-size:11px">Esc</span></div>
+<div class="muted" style="flex:1">Claude Code in IS-14 (web). It's working: it will be cut off mid-task.</div>
 <div class="row" style="justify-content:flex-end;gap:8px;font-size:12px">
-<div class="row" style="height:32px;padding:0 14px;border-radius:8px;border:1px solid #33353a;background:var(--sel)">Cancelar</div>
-<div class="row" style="height:32px;padding:0 14px;border-radius:8px;background:#e06c75;color:#fff;font-weight:600">Cerrar (Enter)</div></div></div>'''
+<div class="row" style="height:32px;padding:0 14px;border-radius:8px;border:1px solid #33353a;background:var(--sel)">Cancel</div>
+<div class="row" style="height:32px;padding:0 14px;border-radius:8px;background:#e06c75;color:#fff;font-weight:600">Close (Enter)</div></div></div>'''
     return dialog(inner, 440, 180)
 
 

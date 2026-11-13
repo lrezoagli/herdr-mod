@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Worktrees huérfanos: los que ningún agente ni terminal usa.
+"""Orphaned worktrees: the ones no agent or terminal is using.
 
-  limpiar.py list <carpeta>...           JSON con cada worktree de esas carpetas (<carpeta>/<repo>/<nombre>)
-  limpiar.py remove <worktree>...         borra los que sigan siendo seguros (git worktree remove, sin --force)
-  limpiar.py check <worktree>...          JSON con el estado de esos (para el diálogo de cerrar)
-  --ignore t1,t2   no cuenta esas terminales (ni sus registros de dormido): las que se están cerrando
+  limpiar.py list <folder>...            JSON with every worktree in those folders (<folder>/<repo>/<name>)
+  limpiar.py remove <worktree>...         removes the ones that are still safe (git worktree remove, no --force)
+  limpiar.py check <worktree>...          JSON with the state of those (for the close dialog)
+  --ignore t1,t2   don't count these terminals (nor their sleeping records): the ones being closed
 
-En uso: una terminal de herdr-core parada ahí (vivas y terminadas) o un agente dormido del mod
-(su sesión de Claude o Codex dice en qué carpeta estaba).
-Seguro: sin uso, sin cambios y sin commits que falten en el remoto o en la rama principal.
-Las ramas no se tocan: el worktree se puede volver a abrir.
+In use: a herdr-core terminal sitting there (live or finished) or a sleeping agent of the mod
+(its Claude or Codex session says which folder it was in).
+Safe: unused, no changes and no commits missing from the remote or the main branch.
+Branches are left alone: the worktree can be reopened.
 """
 import glob, json, os, subprocess as sp, sys
 
@@ -40,17 +40,17 @@ def first_cwd(path, pick):
 
 
 def users(ignore=()):
-    """carpeta real -> quién la usa"""
+    """real folder -> who uses it"""
     used = {}
     add = lambda cwd, who: cwd and used.setdefault(os.path.realpath(cwd), []).append(who)
     c, out, _ = run("hc", "ls", "--all", "--json")
     if c != 0:
-        sys.exit("no pude listar las terminales de herdr-core (hc ls): no borro nada")
+        sys.exit("couldn't list herdr-core terminals (hc ls): not removing anything")
     for t in json.loads(out).get("terminals", []):
-        # Las terminadas por cierre (killed) ya no tienen pestaña; las que terminaron solas siguen a la vista.
+        # Terminals finished by closing (killed) no longer have a tab; ones that finished on their own are still visible.
         if t.get("address") not in ignore and not (t.get("state") == "finished" and t.get("reason") == "killed"):
             add(t.get("cwd"), t.get("where") or t.get("address"))
-    # Dormidos: en todas las copias del store (también restos viejos).
+    # Sleeping agents: in every copy of the store (old leftovers too).
     for f in glob.glob(H("~/.config/herdr-app/data/herdr-mod/store*.json")):
         try:
             d = json.load(open(f))
@@ -63,7 +63,7 @@ def users(ignore=()):
             for r in (recs or {}).values():
                 if r.get("addr") in ignore:
                     continue
-                sid, who = r.get("session"), f"dormido: {r.get('title') or r.get('addr')}"
+                sid, who = r.get("session"), f"sleeping: {r.get('title') or r.get('addr')}"
                 if not sid:
                     continue
                 cwd = None
@@ -75,7 +75,7 @@ def users(ignore=()):
                 if cwd:
                     add(cwd, who)
                 else:
-                    # Sin saber dónde estaba: mejor no borrar nada que se le parezca.
+                    # No idea where it was: better not remove anything that might be it.
                     used.setdefault("?", []).append(who)
     return used
 
@@ -97,24 +97,24 @@ def check(p, used):
     if by:
         return {**row, "state": "inuse", "why": ", ".join(dict.fromkeys(by))}
     if run("git", "rev-parse", "--is-inside-work-tree", cwd=p)[0] != 0:
-        return {**row, "state": "broken", "why": "git no la reconoce (el repo de origen ya no está)"}
+        return {**row, "state": "broken", "why": "git doesn't recognize it (its source repo is gone)"}
     c, top, _ = run("git", "rev-parse", "--show-toplevel", cwd=p)
     if os.path.realpath(top) != p:
-        return {**row, "state": "review", "why": "no es la raíz de un worktree"}
+        return {**row, "state": "review", "why": "not the root of a worktree"}
     c, gd, _ = run("git", "rev-parse", "--git-dir", cwd=p)
     if "/worktrees/" not in gd:
-        return {**row, "state": "review", "why": "es un checkout principal, no un worktree"}
-    row["branch"] = run("git", "branch", "--show-current", cwd=p)[1] or "(sin rama)"
+        return {**row, "state": "review", "why": "it's a main checkout, not a worktree"}
+    row["branch"] = run("git", "branch", "--show-current", cwd=p)[1] or "(no branch)"
     why = []
     _, dirty, _ = run("git", "status", "--porcelain", cwd=p)
     if dirty:
-        why.append(f"{len(dirty.splitlines())} cambios sin commitear")
+        why.append(f"{len(dirty.splitlines())} uncommitted changes")
     if run("git", "rev-parse", "-q", "--verify", "HEAD", cwd=p)[0] == 0:
         _, a, _ = run("git", "rev-list", "--count", "HEAD", "--not", "--remotes", cwd=p)
         refs = default_branch(p)
         _, b, _ = run("git", "rev-list", "--count", "HEAD", "--not", *refs, cwd=p) if refs else (0, a, "")
         if a not in ("", "0") and b not in ("", "0"):
-            why.append(f"{min(int(a), int(b))} commits que no están en el remoto ni en main")
+            why.append(f"{min(int(a), int(b))} commits not on the remote or main")
     if why:
         return {**row, "state": "review", "why": ", ".join(why)}
     return row

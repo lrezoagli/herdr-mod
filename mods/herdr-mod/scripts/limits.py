@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Limites de uso de Claude Code y de Codex, para el panel Uso de Herdr.
+"""Claude Code and Codex usage limits, for Herdr's Usage panel.
 
-- Claude Code: ~/.claude/statusline.sh guarda en ~/.cache/herdr-limits/claude.json
-  los rate_limits que Claude le pasa a la barra de estado (five_hour, seven_day:
-  used_percentage, resets_at) y cuando ("at"). Solo se actualiza con un Claude abierto.
-- Codex: cada sesion de ~/.codex/sessions anota rate_limits en sus eventos
-  (primary/secondary: used_percent, window_minutes, resets_at; plan_type). Se toma
-  el ultimo de las sesiones mas nuevas.
+- Claude Code: ~/.claude/statusline.sh saves to ~/.cache/herdr-limits/claude.json
+  the rate_limits Claude passes to the status line (five_hour, seven_day:
+  used_percentage, resets_at) and when ("at"). Only updated while a Claude is open.
+- Codex: each session in ~/.codex/sessions records rate_limits in its events
+  (primary/secondary: used_percent, window_minutes, resets_at; plan_type). The
+  latest one from the newest sessions is used.
 
-Imprime {"claude": {"at", "windows": [{"label", "used", "resets_at"}]},
-         "codex": {"at", "plan", "windows": [...]}}; un lado falta si no hay datos.
+Prints {"claude": {"at", "windows": [{"label", "used", "resets_at"}]},
+        "codex": {"at", "plan", "windows": [...]}}; a side is missing if there is no data.
 """
 import base64
 import glob
@@ -24,7 +24,7 @@ def label(minutes):
     if not minutes:
         return "?"
     if minutes >= 10080 - 60:
-        return "semana"
+        return "week"
     if minutes % 60 == 0:
         return f"{minutes // 60} h"
     return f"{minutes} min"
@@ -36,7 +36,7 @@ def claude():
     except (OSError, ValueError):
         return None
     rl = d.get("rate_limits") or {}
-    names = {"five_hour": "5 h", "seven_day": "semana", "seven_day_opus": "semana Opus", "seven_day_sonnet": "semana Sonnet"}
+    names = {"five_hour": "5 h", "seven_day": "week", "seven_day_opus": "week Opus", "seven_day_sonnet": "week Sonnet"}
     minutes = {"five_hour": 300}
     windows = [{"label": names.get(k, k.replace("_", " ")), "used": v.get("used_percentage"), "resets_at": v.get("resets_at"),
                 "minutes": minutes.get(k, 10080 if k.startswith("seven_day") else None)}
@@ -86,12 +86,12 @@ def codex():
                 at = int(datetime.fromisoformat(m.get("timestamp", "").replace("Z", "+00:00")).timestamp() * 1000)
             except ValueError:
                 at = int(os.path.getmtime(path) * 1000)
-            windows.sort(key=lambda w: w["label"] == "semana")
+            windows.sort(key=lambda w: w["label"] == "week")
             return {"at": at, "plan": rl.get("plan_type"), "windows": windows}
     return None
 
 
-# La cuenta de cada uno: solo campos que no son secretos (nunca los tokens).
+# Each account: only non-secret fields (never the tokens).
 def claude_account():
     oa = json.load(open(f"{HOME}/.claude.json")).get("oauthAccount") or {}
     return {"email": oa.get("emailAddress"), "plan": oa.get("planDisplayName"), "extra": oa.get("hasExtraUsageEnabled")}
@@ -111,7 +111,7 @@ out = {}
 for name, fn in (("claude", claude), ("codex", codex)):
     try:
         r = fn()
-    except Exception:  # noqa: BLE001 - un lado roto no tapa al otro
+    except Exception:  # noqa: BLE001 - one broken side does not hide the other
         r = None
     if r:
         out[name] = r

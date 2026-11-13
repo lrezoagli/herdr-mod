@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""Qué está haciendo cada agente (Claude Code o Codex) de herdr-core, leído de lo que
-ya escriben ellos. Para Herdr: árbol de agentes, barra de abajo, ⌘J y dormir/despertar.
+"""What each herdr-core agent (Claude Code or Codex) is doing, read from what the
+agents already write themselves. For Herdr: agent tree, bottom bar, ⌘J and sleep/wake.
 
-Por cada terminal de hc con Claude Code o Codex:
-- pid, argv, cwd, agent: el proceso del agente y cómo se lanzó.
-- session: su sesión (para dormirlo y despertarlo con --resume / codex resume).
-- activity: qué está haciendo, en pocas palabras (la última herramienta, "pensando",
-  "terminó").
+For each hc terminal running Claude Code or Codex:
+- pid, argv, cwd, agent: the agent's process and how it was launched.
+- session: its session (to put it to sleep and wake it with --resume / codex resume).
+- activity: what it is doing, in a few words (the last tool, "thinking",
+  "finished").
 
-Claude: ~/.claude/sessions/<pid>.json da la sesión; el transcript está en
-~/.claude/projects/*/<sesión>.jsonl. Codex: el rollout más nuevo con ese cwd.
+Claude: ~/.claude/sessions/<pid>.json gives the session; the transcript is at
+~/.claude/projects/*/<session>.jsonl. Codex: the newest rollout with that cwd.
 
-Extensiones opcionales: cualquier otro .py al lado con start(ctx) -> enrich(st, info)
-recibe cada agente y le agrega lo suyo. Sin extensiones, solo lo de arriba.
+Optional extensions: any other .py next to this one with start(ctx) -> enrich(st, info)
+receives each agent and adds its own fields. Without extensions, only the above.
 
-Corre cada 5 s, así que guarda lo caro en ~/.cache/herdr-limits/agentes-cache.json:
-el pid de cada terminal (mientras ese proceso viva, sin `hc get`), lo leído de cada
-transcript (mientras no cambie de tamaño ni de fecha) y el cwd de cada rollout de Codex.
+Runs every 5 s, so it caches the expensive parts in ~/.cache/herdr-limits/agentes-cache.json:
+the pid of each terminal (while that process lives, no `hc get`), what was read from each
+transcript (while its size and mtime don't change) and the cwd of each Codex rollout.
 
-Imprime {"t1b": {...}, ...}. Nunca falla por un agente: ese queda sin datos.
+Prints {"t1b": {...}, ...}. Never fails because of one agent: that one just has no data.
 """
 import glob
 import json
@@ -31,7 +31,7 @@ import time
 HOME = os.path.expanduser("~")
 CACHE = f"{HOME}/.cache/herdr-limits/agentes-cache.json"
 cache = {"pids": {}, "files": {}, "rollouts": {}}
-TEXT_MAX = 2000  # lo último que dijo el agente, para las extensiones
+TEXT_MAX = 2000  # the last thing the agent said, for extensions
 
 
 def alive(pid):
@@ -45,7 +45,7 @@ def alive(pid):
 
 
 def cached(path, fn):
-    """fn(path) solo si el archivo cambió desde la última vez."""
+    """fn(path) only if the file changed since last time."""
     try:
         st = os.stat(path)
     except OSError:
@@ -90,37 +90,37 @@ def base(p):
 def describe(name, inp):
     inp = inp or {}
     if name == "Read":
-        return f"leyendo {base(inp.get('file_path'))}"
+        return f"reading {base(inp.get('file_path'))}"
     if name in ("Edit", "MultiEdit", "NotebookEdit"):
-        return f"editando {base(inp.get('file_path') or inp.get('notebook_path'))}"
+        return f"editing {base(inp.get('file_path') or inp.get('notebook_path'))}"
     if name == "Write":
-        return f"escribiendo {base(inp.get('file_path'))}"
+        return f"writing {base(inp.get('file_path'))}"
     if name == "Bash":
         cmd = inp.get("command", "")
         if re.search(r"codex exec|claude -p", cmd):
-            return "revisión cruzada (Codex)"
+            return "cross-review (Codex)"
         return short(inp.get("description") or f"$ {cmd}", 60)
     if name in ("Grep", "Glob"):
-        return f"buscando {short(inp.get('pattern'), 40)}"
+        return f"searching {short(inp.get('pattern'), 40)}"
     if name in ("WebFetch", "WebSearch"):
-        return "buscando en la web"
+        return "searching the web"
     if name == "Skill":
         return f"/{inp.get('skill', '?')}"
     if name in ("Agent", "Task"):
-        return f"lanzando {short(inp.get('description') or inp.get('name'), 40)}"
+        return f"launching {short(inp.get('description') or inp.get('name'), 40)}"
     if name == "SendMessage":
-        return f"escribiéndole a {inp.get('to', '?')}"
+        return f"messaging {inp.get('to', '?')}"
     if name == "AskUserQuestion":
-        return "preguntándote algo"
+        return "asking you something"
     if name.startswith("mcp__"):
-        return f"usando {name.split('__')[-1].replace('_', ' ')}"
+        return f"using {name.split('__')[-1].replace('_', ' ')}"
     return name
 
 
-# Lo que leen las dos lecturas de transcript, para el agente y sus extensiones:
-# activity, done (terminó su turno), text (lo último que dijo, recortado),
-# commands (los /comandos y $skills que le pediste), skills (las que lanzó él) e
-# invoked (las dos cosas juntas, en el orden en que pasaron).
+# What both transcript readers extract, for the agent and its extensions:
+# activity, done (finished its turn), text (the last thing it said, trimmed),
+# commands (the /commands and $skills you asked for), skills (the ones it launched) and
+# invoked (both together, in the order they happened).
 
 def claude_state(pid):
     try:
@@ -130,10 +130,10 @@ def claude_state(pid):
     sid = sess.get("sessionId")
     files = glob.glob(f"{HOME}/.claude/projects/*/{sid}.jsonl")
     if not files:
-        return {}  # sesión sin conversación todavía: no hay nada que retomar
+        return {}  # session with no conversation yet: nothing to resume
     st = cached(files[0], claude_transcript)
     st["session"] = sid
-    # El nombre de la sesión (/rename o -n) y de dónde salió ("derived": Claude lo inventó).
+    # The session name (/rename or -n) and where it came from ("derived": Claude made it up).
     st["session_name"], st["name_source"] = sess.get("name"), sess.get("nameSource")
     return st
 
@@ -173,16 +173,16 @@ def claude_transcript(path):
         last_kind = "end" if msg.get("stop_reason") == "end_turn" else "assistant"
     st["done"] = last_kind == "end"
     if st["done"]:
-        st["activity"] = "terminó"
+        st["activity"] = "finished"
     elif last_kind in ("tool_result", "user"):
-        st["activity"] = "pensando"
+        st["activity"] = "thinking"
     st["text"] = last_text[-TEXT_MAX:]
     st["commands"], st["skills"], st["invoked"] = st["commands"][-20:], st["skills"][-20:], st["invoked"][-20:]
     return st
 
 
-# Codex no deja abierto su rollout: el más nuevo de los últimos días con ese cwd.
-# De cada rollout guarda su cwd y su sesión (la primera línea no cambia).
+# Codex doesn't keep its rollout open: take the newest one from the last few days with that cwd.
+# For each rollout, cache its cwd and session (the first line never changes).
 def codex_rollout(cwd):
     best = None
     for path in glob.glob(f"{HOME}/.codex/sessions/*/*/*/*.jsonl"):
@@ -237,7 +237,7 @@ def codex_transcript(path):
                 cmd = " ".join(a.get("command")) if isinstance(a.get("command"), list) else a.get("command") or a.get("cmd") or ""
             except (ValueError, AttributeError):
                 cmd = str(args)
-            st["activity"] = "revisión cruzada (Claude)" if re.search(r"claude -p", cmd) else short(f"$ {cmd}" if cmd else p.get("name", ""), 60)
+            st["activity"] = "cross-review (Claude)" if re.search(r"claude -p", cmd) else short(f"$ {cmd}" if cmd else p.get("name", ""), 60)
             last_kind = "tool"
         elif t in ("agent_message",) or (t == "message" and p.get("role") == "assistant"):
             text = p.get("message") or " ".join(x.get("text", "") for x in (p.get("content") or []) if isinstance(x, dict))
@@ -248,13 +248,13 @@ def codex_transcript(path):
             last_kind = "end"
     st["done"] = last_kind == "end"
     if st["done"]:
-        st["activity"] = "terminó"
+        st["activity"] = "finished"
     st["text"] = last_text[-TEXT_MAX:]
     st["commands"], st["skills"], st["invoked"] = st["commands"][-20:], st["skills"][-20:], st["invoked"][-20:]
     return st
 
 
-# Extensiones: cualquier otro .py al lado con start(ctx) -> enrich(st, info).
+# Extensions: any other .py next to this one with start(ctx) -> enrich(st, info).
 CORE = {"agentes", "teams", "prs", "usage", "limits"}
 
 
@@ -270,7 +270,7 @@ def extensions(ctx):
             mod = __import__(name)
             if hasattr(mod, "start"):
                 out.append(mod.start(ctx))
-        except Exception:  # noqa: BLE001 - una extensión rota no apaga la lista
+        except Exception:  # noqa: BLE001 - a broken extension does not take the list down
             pass
     return out
 
@@ -315,9 +315,9 @@ def main():
                 st.pop(k, None)
             st.update(info)
             out[addr] = st
-        except Exception:  # noqa: BLE001 - un agente raro no tapa a los demás
+        except Exception:  # noqa: BLE001 - one odd agent does not hide the others
             continue
-    # Sin lo que ya no está: terminales que se fueron, archivos que no se leyeron.
+    # Drop what is gone: terminals that left, files that were not read.
     cache["pids"] = {k: v for k, v in cache["pids"].items() if k in live}
     cache["files"] = {k: v for k, v in cache["files"].items() if k in cache["used"]}
     cache["rollouts"] = {k: v for k, v in cache["rollouts"].items() if os.path.exists(k) and os.path.getmtime(k) > time.time() - 4 * 86400}

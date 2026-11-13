@@ -1,4 +1,4 @@
-// Un solo mod, varios roles: cada rol guarda lo suyo con su prefijo ("agents:pins").
+// One mod, several roles: each role stores its data under its own prefix ("agents:pins").
 export function scoped(role) {
   const ls = globalThis.localStorage;
   const k = (key) => `${role}:${key}`;
