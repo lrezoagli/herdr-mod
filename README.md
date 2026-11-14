@@ -341,4 +341,4 @@ herdr.dev uses.
 
 ## License
 
-No license yet. Ask the author before reusing the code.
+MIT. See [LICENSE](LICENSE).
