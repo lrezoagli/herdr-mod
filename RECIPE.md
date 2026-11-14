@@ -23,7 +23,10 @@ at them. The interface is in English.
       `branchPrefix`);
     - the current branch, small, if it's a different one;
     - the time since its last change;
-    - the status: spinner, "Needs you", a done dot, or "zz" if it's asleep.
+    - the status: spinner, "Needs you", a done dot, or "zz" if it's asleep;
+    - a blue chip with a spinner while Codex works for it (`/codex:review`,
+      `/codex:adversarial-review`, `/codex:rescue`, or a `codex exec` it launched): "Codex adv
+      3m". Yellow at 10 min, red at 20; from 10 min, a stop button in the footer and ⌘J.
 - **Tab bar (role `tabs`).**
   - The project's tabs.
   - On the right: Claude, Codex, Files and GitHub (with the number of pending items). The
@@ -146,7 +149,10 @@ at them. The interface is in English.
   - `worktreeRoots`: folders holding worktrees (`<folder>/<repo>/<name>`) to clean up.
 - **Scripts (`scripts/`).**
   - `agentes.py` (every 5 s): pid, argv, session, session name and activity of each agent,
-    read from `~/.claude/sessions`, `~/.claude/projects` and `~/.codex/sessions`. Accepts
+    read from `~/.claude/sessions`, `~/.claude/projects` and `~/.codex/sessions`. Also the
+    Codex review running for it: the Codex plugin's jobs
+    (`~/.claude/plugins/data/*/state/*/jobs/*.json`, matched by Claude session; stopped with
+    the plugin's own `cancel`) or a `codex exec` / `claude -p` under the agent (`ps`). Accepts
     optional extensions alongside it (`<name>.py` with `start(ctx) -> enrich(st, info)`).
   - `teams.py`: Claude's agent teams.
   - `prs.py` (every 2 min): one GraphQL query with `gh api graphql`, plus the clones found

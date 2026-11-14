@@ -7,6 +7,10 @@ For each hc terminal running Claude Code or Codex:
 - session: its session (to put it to sleep and wake it with --resume / codex resume).
 - activity: what it is doing, in a few words (the last tool, "thinking",
   "finished").
+- review: Codex (or Claude) working for it right now: /codex:review,
+  /codex:adversarial-review and /codex:rescue from the Codex plugin for Claude Code (its
+  jobs in ~/.claude/plugins/data/*/state/*/jobs, tied to the agent by session), or a
+  `codex exec` / `claude -p` launched under it. {pid, secs, tool, kind, stop?}.
 
 Claude: ~/.claude/sessions/<pid>.json gives the session; the transcript is at
 ~/.claude/projects/*/<session>.jsonl. Codex: the newest rollout with that cwd.
@@ -115,6 +119,86 @@ def describe(name, inp):
     if name.startswith("mcp__"):
         return f"using {name.split('__')[-1].replace('_', ' ')}"
     return name
+
+
+# Codex working for an agent. The Codex plugin for Claude Code keeps one JSON per job,
+# with the Claude session that started it; its review runs through an app-server that
+# isn't a child of the agent, so ps alone doesn't see it. ps covers the rest: a
+# `codex exec` / `claude -p` under the agent (loopkit's cross-reviews, scripts).
+PLUGIN_JOBS = f"{HOME}/.claude/plugins/data/*/state/*/jobs/*.json"
+KINDS = {"review": "review", "adversarial-review": "adversarial", "task": "rescue"}
+
+
+def iso_secs(s):
+    try:
+        from datetime import datetime
+        return max(0, int(time.time() - datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp()))
+    except (TypeError, ValueError):
+        return 0
+
+
+def first_file(*patterns):
+    for pat in patterns:
+        hits = sorted(glob.glob(pat), key=os.path.getmtime)
+        if hits:
+            return hits[-1]
+
+
+def plugin_jobs():
+    """Claude session -> its running Codex plugin job."""
+    out = {}
+    node = first_file("/opt/homebrew/bin/node", "/usr/local/bin/node", f"{HOME}/.volta/bin/node", f"{HOME}/.nvm/versions/node/*/bin/node")
+    script = first_file(f"{HOME}/.claude/plugins/cache/*/codex/*/scripts/codex-companion.mjs")
+    for path in glob.glob(PLUGIN_JOBS):
+        try:
+            if os.path.getmtime(path) < time.time() - 86400:
+                continue
+            j = json.load(open(path))
+        except (OSError, ValueError):
+            continue
+        if j.get("status") not in ("queued", "running") or not j.get("sessionId") or not alive(j.get("pid")):
+            continue
+        rv = {"pid": j["pid"], "secs": iso_secs(j.get("startedAt") or j.get("createdAt")), "tool": "Codex",
+              "kind": KINDS.get(j.get("kind"), j.get("kind") or "review"), "phase": j.get("phase")}
+        if node and script and j.get("workspaceRoot"):
+            data = path.split("/state/")[0]
+            rv["stop"] = ["env", f"CLAUDE_PLUGIN_DATA={data}", node, script, "cancel", j["id"], "--cwd", j["workspaceRoot"]]
+        old = out.get(j["sessionId"])
+        if not old or rv["secs"] > old["secs"]:
+            out[j["sessionId"]] = rv
+    return out
+
+
+def etime_secs(etime):
+    d, _, rest = etime.strip().rpartition("-")
+    parts = [int(x) for x in rest.split(":")]
+    while len(parts) < 3:
+        parts.insert(0, 0)
+    return (int(d) if d else 0) * 86400 + parts[0] * 3600 + parts[1] * 60 + parts[2]
+
+
+def child_reviews():
+    """agent pid -> the oldest review process under it."""
+    procs, kids = {}, {}
+    for line in sh("ps", "-A", "-o", "pid=,ppid=,etime=,command=").splitlines():
+        f = line.split(None, 3)
+        if len(f) == 4:
+            procs[int(f[0])] = (int(f[1]), f[2], f[3])
+            kids.setdefault(int(f[1]), []).append(int(f[0]))
+
+    def find(root):
+        stack, out = list(kids.get(root, [])), []
+        while stack:
+            p = stack.pop()
+            cmd = procs[p][2]
+            m = re.search(r"codex-companion\.mjs\S*\s+(review|adversarial-review|task)\b", cmd)
+            if m or re.search(r"(^|/)codex(\s+\S+)*\s+exec\b", cmd) or re.search(r"(^|/)claude\s+-p\b", cmd):
+                tool = "Claude" if re.search(r"(^|/)claude\s", cmd) else "Codex"
+                out.append({"pid": p, "secs": etime_secs(procs[p][1]), "tool": tool, "kind": KINDS[m.group(1)] if m else "review"})
+                continue
+            stack.extend(kids.get(p, []))
+        return max(out, key=lambda r: r["secs"]) if out else None
+    return find
 
 
 # What both transcript readers extract, for the agent and its extensions:
@@ -255,7 +339,7 @@ def codex_transcript(path):
 
 
 # Extensions: any other .py next to this one with start(ctx) -> enrich(st, info).
-CORE = {"agentes", "teams", "prs", "usage", "limits"}
+CORE = {"agentes", "teams", "prs", "usage", "limits", "limpiar"}
 
 
 def extensions(ctx):
@@ -287,6 +371,7 @@ def main():
     out = {}
     term = json.loads(sh("hc", "ls", "--json") or "{}").get("terminals", [])
     exts = extensions({"sh": sh, "cache": cache})
+    jobs, under = plugin_jobs(), child_reviews()
     live = set()
     for t in term:
         if t.get("state") != "live" or t.get("agent") not in ("claude-code", "codex"):
@@ -306,6 +391,9 @@ def main():
                 cache["pids"][addr] = [pid, argv, cwd, t.get("agent")]
             st = claude_state(pid) if t["agent"] == "claude-code" else codex_state(pid, cwd)
             info = {"pid": pid, "argv": argv, "cwd": cwd, "agent": t.get("agent")}
+            rv = jobs.get(st.get("session")) or under(pid)
+            if rv:
+                st["review"] = rv
             for enrich in exts:
                 try:
                     enrich(st, info)

@@ -314,7 +314,7 @@ export default class Agents extends View {
   publishAlerts() {
     const out = [];
     for (const [addr, st] of Object.entries(this.lk)) {
-      if (st.review && st.review.secs >= 600) out.push({ kind: "review", addr, who: this.who(addr), secs: st.review.secs, pid: st.review.pid, tool: st.review.tool, hung: st.review.secs >= 1200 });
+      if (st.review && st.review.secs >= 600) out.push({ kind: "review", addr, who: this.who(addr), secs: st.review.secs, pid: st.review.pid, stop: st.review.stop, tool: st.review.tool, rkind: st.review.kind, hung: st.review.secs >= 1200 });
       if (st.next) out.push({ kind: "go", addr, who: this.who(addr), next: st.next, stage: st.stage, size: st.size });
     }
     // My PRs with something to answer and the reviews requested from me (minus the muted ones).
@@ -350,10 +350,14 @@ export default class Agents extends View {
         .child(`${st.size ? `${st.size} · ` : ""}${st.stage}`));
     }
     if (st.next) out.push(div().flex_none().px(5).rounded(4).text_size(10.5).font_semibold().bg(`${t.accent}26`).text_color(t.accent).child("go?"));
+    // Codex (or Claude) reviewing for this agent: /codex:review, /codex:adversarial-review,
+    // /codex:rescue or a cross-review. Shown from the first second; yellow at 10 min, red at 20.
     if (st.review) {
-      const m = Math.floor(st.review.secs / 60), c = st.review.secs >= 1200 ? t.blocked : st.review.secs >= 600 ? t.ansi3 : t.muted;
-      out.push(div().id(`rv-${a.address}`).flex_none().px(5).rounded(4).text_size(10.5).font_semibold().bg(`${c}26`).text_color(c)
-        .tooltip(`${st.review.tool} review running for ${m} min`).child(`${st.review.tool} ${m}m`));
+      const rv = st.review, m = Math.floor(rv.secs / 60), c = rv.secs >= 1200 ? t.blocked : rv.secs >= 600 ? t.ansi3 : rv.tool === "Codex" ? t.ansi4 : t.ansi3;
+      out.push(h_flex().id(`rv-${a.address}`).flex_none().gap(4).items_center().px(5).rounded(4).text_size(10.5).font_semibold().bg(`${c}26`).text_color(c)
+        .tooltip(`${rv.tool} ${rv.kind ?? "review"} running for ${m} min${rv.phase ? ` (${rv.phase})` : ""}`)
+        .child(svg("mods/workspace-chrome/spinner.svg").size(9).text_color(c).spin(900))
+        .child(`${rv.tool} ${rv.kind === "adversarial" ? "adv" : rv.kind ?? "review"}${m ? ` ${m}m` : ""}`));
     }
     return out;
   }

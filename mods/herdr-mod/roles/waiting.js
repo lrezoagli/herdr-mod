@@ -8,6 +8,9 @@ import { agents, terminals, panes, run, theme, props, closeOverlay, shared, setS
 
 import { scoped } from "../store.js";
 import { cfg, prefixRe, loadConfig } from "../config.js";
+// Stop a running review: a Codex plugin job is cancelled with its own /codex:cancel
+// (interrupts the Codex turn too); anything else gets a kill.
+const stopReview = (rv) => rv.stop ? exec(rv.stop[0], rv.stop.slice(1)) : exec("kill", [String(rv.pid)]);
 const localStorage = scoped("waiting");
 
 // /pr-review and /pr-fix are skills (if you have them). Without them (shared "herdr-mod.skills",
@@ -110,11 +113,11 @@ export default class Waiting extends View {
               .child(h_flex().gap(8).min_w(0).child(div().flex_none().font_semibold().text_color(t.foreground).child(al.who))
                 .when(Boolean(al.title), el => el.child(div().min_w(0).truncate().text_size(13).text_color(t.dim).child(al.title))))
               .child(div().truncate().text_size(13).text_color(t.muted).child(al.kind === "review"
-                ? `${al.tool} review running for ${Math.floor(al.secs / 60)} min${al.hung ? ": looks stuck" : ""}`
+                ? `${al.tool} ${al.rkind ?? "review"} running for ${Math.floor(al.secs / 60)} min${al.hung ? ": looks stuck" : ""}`
                 : al.what)))
             .when(al.kind === "review", el => el
               .child(btn(`go-to-${al.addr}`, "go to", t.muted, () => this.go({ address: al.addr })))
-              .child(btn(`cut-${al.pid}`, "kill", t.blocked, () => exec("kill", [String(al.pid)]))))
+              .child(btn(`cut-${al.pid}`, "stop", t.blocked, () => stopReview(al))))
             .when(al.kind === "pr" || al.kind === "rr", el => el
               .when(Boolean(al.addr), el => el.child(btn(`fix-${al.key}`, prLabel("fix"), t.ansi5, () => {
                 exec("hc", ["send", al.addr, prAsk("fix", al.number, al.repo)]);

@@ -163,4 +163,5 @@ def main():
     print(json.dumps(out, ensure_ascii=False))
 
 
-main()
+if __name__ == "__main__":
+    main()

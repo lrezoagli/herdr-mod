@@ -18,6 +18,9 @@ import { exec, home, machines, theme, props, openOverlay, run, window, shared, s
 
 import { scoped } from "../store.js";
 import { cfg, prefixRe, loadConfig } from "../config.js";
+// Stop a running review: a Codex plugin job is cancelled with its own /codex:cancel
+// (interrupts the Codex turn too); anything else gets a kill.
+const stopReview = (rv) => rv.stop ? exec(rv.stop[0], rv.stop.slice(1)) : exec("kill", [String(rv.pid)]);
 const localStorage = scoped("uso");
 
 // /pr-review and /pr-fix are skills (if you have them). Without them (shared "herdr-mod.skills",
@@ -354,8 +357,8 @@ export default class Uso extends View {
     }
     if (st?.review) {
       const m = Math.floor(st.review.secs / 60), c = st.review.secs >= 1200 ? t.blocked : st.review.secs >= 600 ? t.ansi3 : t.muted;
-      out.push(div().text_size(12).font_semibold().text_color(c).child(`${st.review.tool} reviewing ${m}m`));
-      if (st.review.secs >= 600) out.push(btn("cut-review", "stop", t.blocked, () => exec("kill", [String(st.review.pid)])));
+      out.push(div().text_size(12).font_semibold().text_color(c).child(`${st.review.tool} ${st.review.kind ?? "review"} ${m}m`));
+      if (st.review.secs >= 600) out.push(btn("cut-review", "stop", t.blocked, () => stopReview(st.review)));
     }
     if (st?.next) {
       out.push(div().text_size(12).text_color(t.accent).child(`waiting for go → ${st.next}`));
