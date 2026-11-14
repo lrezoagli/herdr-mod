@@ -110,6 +110,7 @@ def read_transcript(session, name):
     if not files:
         return out
     path = max(files, key=os.path.getmtime)
+    out["path"] = path
     entries = []
     for line in tail_lines(path):
         try:

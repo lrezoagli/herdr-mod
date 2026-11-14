@@ -306,7 +306,7 @@ export default class Uso extends View {
       .text_size(fs(11.5)).text_color(t.muted)
       .child(h_flex().flex_none().max_w(700).gap(10).items_center().child(here_).children(loop))
       .child(sep())
-      .child(h_flex().id("bar-waiting").flex_1().min_w(0).gap(6).items_center().overflow_x_hidden()
+      .child(h_flex().id("bar-waiting").flex_1().min_w(0).gap(6).items_center().justify_center().overflow_x_hidden()
         .child(div().flex_none().text_size(10.5).font_semibold().text_color(t.dim).mr(2).child(waiting.length ? "WAITING ON YOU" : "No one is waiting on you"))
         .children(waiting))
       .child(sep())

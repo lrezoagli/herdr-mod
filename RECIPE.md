@@ -33,7 +33,14 @@ at them. The interface is in English.
       (Codex plugin) or a `codex exec` / `claude -p` cross-review, with how long it's been.
       Yellow at 10 min, red at 20; from 10 min, a stop button in the footer and ⌘J.
 
-    Clicking one of the last three focuses its agent.
+    Clicking an `hc` sub-agent peeks at its terminal. Clicking any of the others (role `ver`)
+    opens a dialog that follows its transcript (Claude) or job log (Codex) every 2 s, newest
+    first, with "go to agent".
+  - **Right-click on an agent** (role `agentmenu`, a popup): go to agent, peek, rename,
+    pin/unpin, put to sleep now / wake up, send go (when one is pending), interrupt, Codex
+    review / adversarial review (Claude agents: sends `/codex:review --background`), new
+    agent on top of its branch, open its PR, open the folder in Finder, copy branch or path,
+    close…. Pin and sleep reach the `agents` role through `shared("herdr-mod.agent.action")`.
 - **Tab bar (role `tabs`).**
   - The project's tabs.
   - On the right: Claude, Codex, Files and GitHub (with the number of pending items). The
@@ -58,8 +65,8 @@ at them. The interface is in English.
   - the focused project › agent, with its loopkit stage or "go" if an extension reports one;
   - the agents that need an answer from you, one chip each (icon, name, and "!" when it's
     asking for permission or a question, "go?" when it's waiting for your go). Click takes
-    you there. Agents that only finished their turn don't count. Under a "WAITING ON YOU"
-    label, or "No one is waiting on you";
+    you there. Agents that only finished their turn don't count. Centered, under a "WAITING
+    ON YOU" label, or "No one is waiting on you";
   - on the right, each in its own box: Claude and Codex usage (5 h and week), and the
     machine's CPU and RAM.
 - **Dialogs.**
@@ -134,7 +141,7 @@ at them. The interface is in English.
 - **One mod, several roles.** `mods/herdr-mod/main.js` reads `props().role` and the copy
   becomes that role's class (`roles/<role>.js`). Roles: `agents`, `spaces`, `tabs`,
   `github`, `equipo`, `uso`, `tips`, `pane` (in the layout) and `waiting`, `buscar`,
-  `close`, `worktree` (dialogs). Herdr stores `localStorage` per copy.
+  `close`, `worktree`, `limpiar`, `ver` (dialogs) and `agentmenu` (popup). Herdr stores `localStorage` per copy.
 - **Layout.** `layouts/herdr-mod.json` places the mod with its role in each spot. It also
   uses Herdr's `files`, `changes` and `workspace-chrome` mods (icons and spinner).
 - **Keys.** `keys.json`. `herdr-mod.<command>` commands reach every copy, and the `tabs`

@@ -6,6 +6,7 @@ import { v_flex, h_flex } from "gpui-base";
 // shortcut tips.
 import { exec, home, notify, agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 import { scoped } from "../store.js";
+import { menuHeight } from "./agentmenu.js";
 import { cfg, prefixRe, loadConfig } from "../config.js";
 const localStorage = scoped("agents");
 
@@ -137,6 +138,9 @@ export default class Agents extends View {
       if (d && d.at > (this.dismissAt ?? 0)) { this.dismissAt = d.at; this.dismissPr(d.key); this.publishAlerts(); cx.notify(); }
       const f = shared("herdr-mod.prs.refresh");
       if (f && f > (this.refreshAt ?? 0)) { this.refreshAt = f; this.loadReviews(cx); }
+      // The right-click menu (another copy) asks to pin, unpin, put to sleep or wake an agent.
+      const act = shared("herdr-mod.agent.action");
+      if (act && act.at > (this.actAt ?? 0)) { this.actAt = act.at; this.agentAction(act.op, act.addr); cx.notify(); }
       // Looking at a sleeping agent wakes it.
       const pane = focused()?.pane;
       const z = pane && Object.values(this.sleeping).find((r) => r.pane === pane);
@@ -668,6 +672,23 @@ export default class Agents extends View {
     }
   }
 
+  // From the right-click menu.
+  agentAction(op, addr) {
+    if (op === "pin" && !this.pins.includes(addr)) this.setPins([...this.pins, addr]);
+    else if (op === "unpin") this.setPins(this.pins.filter((p) => p !== addr));
+    else if (op === "wake") this.wake(addr);
+    else if (op === "sleep") {
+      const a = agents().find((x) => x.address === addr), st = this.lk?.[addr];
+      if (!a || !st || !["claude-code", "codex"].includes(st.agent) || a.status === "working") return;
+      this.sleeping[addr] = {
+        addr, pane: a.pane, space: a.space, space_name: a.space_name, program: a.program, seq: a.seq, title: a.title,
+        kind: st.agent, session: st.session ?? null, argv: st.argv ?? [], at: Date.now(),
+      };
+      localStorage.setItem("sleeping", JSON.stringify(this.sleeping));
+      exec("hc", ["send", addr, st.agent === "codex" ? "/quit" : "/exit"]);
+    }
+  }
+
   // Which agent runs in each terminal (with its session and how it was launched), and on which herdr-core:
   // localStorage "running". If the core changes, recoverAfterRestart knows what was cut off.
   trackRunning() {
@@ -831,11 +852,12 @@ export default class Agents extends View {
     const program = all.find((x) => x.address === addr)?.program;
     const st = this.lk?.[addr] ?? {};
     const mates = (this.teams?.[addr] ?? []).map((m) => ({ address: `${addr}~${m.name}`, name: m.name, status: m.status, program, mate: m, lead: addr }));
-    const subs = (st.subagents ?? []).map((s) => ({ address: `${addr}~sa-${s.id}`, name: s.name, status: "working", program: { icon: "icons/claude.svg" }, inner: { ...s, tip: [s.type, s.bg ? "in the background" : null, `${duration(s.secs * 1000)} running`].filter(Boolean).join(" · ") }, lead: addr }));
+    const subs = (st.subagents ?? []).map((s) => ({ address: `${addr}~sa-${s.id}`, name: s.name, status: "working", program: { icon: "icons/claude.svg" }, inner: { ...s, view: { kind: "claude", path: s.path }, tip: [s.type, s.bg ? "in the background" : null, `${duration(s.secs * 1000)} running`, "click to watch it"].filter(Boolean).join(" · ") }, lead: addr }));
     const jobs = (st.review ? [st.review, ...(st.review.others ?? [])] : []).map((r, i) => ({
       address: `${addr}~rv-${r.pid ?? i}`, name: `${st.review.tool} ${r.kind ?? "review"}`, status: "working", lead: addr,
       program: { icon: st.review.tool === "Claude" ? "icons/claude.svg" : "icons/codex.svg" },
-      inner: { activity: `${duration(r.secs * 1000)}${r.phase && r.phase !== "running" ? ` · ${r.phase}` : ""}`, tip: `${st.review.tool} ${r.kind ?? "review"} running for ${Math.floor(r.secs / 60)} min`, late: r.secs >= 1200 ? "blocked" : r.secs >= 600 ? "ansi3" : null },
+      inner: { activity: `${duration(r.secs * 1000)}${r.phase && r.phase !== "running" ? ` · ${r.phase}` : ""}`, view: r.log ? { kind: "log", path: r.log } : null,
+        tip: `${st.review.tool} ${r.kind ?? "review"} running for ${Math.floor(r.secs / 60)} min${r.log ? " · click to watch it" : ""}`, late: r.secs >= 1200 ? "blocked" : r.secs >= 600 ? "ansi3" : null },
     }));
     const kids = [...all.filter((k) => k.parent === addr && k.state === "live"), ...mates, ...subs, ...jobs];
     return kids.flatMap((k, i) => {
@@ -867,6 +889,10 @@ export default class Agents extends View {
       .when(Boolean(k.mate), (el) => el.tooltip([k.mate.model, k.mate.task, ...(k.mate.recent ?? []).slice(0, 4).map((r) => `· ${r.text}`)].filter(Boolean).join("\n")))
       .when(Boolean(k.inner), (el) => el.tooltip(k.inner.tip))
       .on_click(() => {
+        // No terminal of its own: watch its transcript or log (Claude sub-agent, teammate, Codex job).
+        const view = k.inner?.view ?? (k.mate?.path ? { kind: "claude", path: k.mate.path } : null);
+        if (view) return openOverlay({ mod: "herdr-mod", kind: "dialog", width: 900, height: 640,
+          props: { role: "ver", ...view, title: k.name, lead: k.lead, icon: k.program?.icon?.startsWith("icons/") ? k.program.icon : null } });
         if (k.inner) return run("pane.focus", { terminal: k.lead });
         if (!k.mate) return this.peek(k.address);
         run("pane.focus", { terminal: k.lead });
@@ -1043,6 +1069,15 @@ export default class Agents extends View {
           if (e.click_count === 2) return run("tab.rename", { id: a.tab }); // double-click: rename it
           if (a.sleeping) { this.wake(a.address); cx.notify(); }
           run("pane.focus", { pane: a.pane }); rowTip(a);
+        })
+        .on_mouse_down("right", (_e, cx) => {
+          cx.stop_propagation();
+          const pane = PANES.find((p) => p.pane === a.pane), b = branchOf(a), st = this.lk?.[a.address] ?? {};
+          const mp = { role: "agentmenu", addr: a.address, pane: a.pane, tab: a.tab, space: a.space, branch: b ?? null, cwd: pane?.cwd ?? st.cwd ?? null,
+            kind: st.agent ?? (a.program?.name === "Codex" ? "codex" : a.program?.name === "Claude Code" ? "claude-code" : null), status: a.status,
+            sleeping: Boolean(a.sleeping), pinned: this.pins.includes(a.address), next: st.next ?? null, pr: (b && this.chains[a.space]?.prs?.[b]?.number) ?? null,
+            label: `${a.space_name ?? ""} › ${name}` };
+          openOverlay({ mod: "herdr-mod", kind: "popup", width: 330, height: menuHeight(mp), props: mp });
         })
         .when(a.sleeping, el => el.tooltip("Asleep (unused for 2 h). Click to wake it where it left off."))
         .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`)

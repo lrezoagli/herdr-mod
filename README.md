@@ -43,7 +43,14 @@ grouped by project and drawn as a tree of git branches:
   - `zz`: asleep.
 - **The tree follows your branches.** A branch hangs from the branch it was started
   from. That is stored in git as `branch.<name>.herdrBase`, so the tree survives restarts.
-- **Sub-agents.** Agents started by other agents (`hc` sub-agents) appear one level in.
+- **Sub-agents.** Whatever works for an agent hangs one level in, with its own spinner:
+  `hc` sub-agents, Claude teammates, Claude's own sub-agents (Agent tool) and Codex
+  jobs (`/codex:review`, `/codex:adversarial-review`, `/codex:rescue`). Click an `hc`
+  sub-agent to peek at its terminal; click any of the others to open a live view of what
+  it's doing (its transcript or job log, refreshed every 2 seconds).
+- **Right-click menu.** Right-click an agent for: go to, peek, rename, pin, put to sleep
+  now or wake up, send go, interrupt, Codex review or adversarial review, a new agent on
+  top of its branch, open its PR, open the folder, copy branch or path, and close.
 - **Epics.** An *epic* (an issue big enough to need several branches)
   shows as a grey branch without an agent. Its child branches hang from it.
 - **Stable names.** An agent keeps the name you gave it when you created it. If it later

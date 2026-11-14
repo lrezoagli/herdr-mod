@@ -1,6 +1,6 @@
 // herdr-mod: one mod for everything. Each layout slot uses it with props.role
 // (agents, spaces, tabs, github, equipo, uso, tips, pane) and dialogs open with
-// their role (waiting, buscar, close, worktree, limpiar, plus agents/uso as popups).
+// their role (waiting, buscar, close, worktree, limpiar, ver, plus agents/uso/agentmenu as popups).
 // Shortcuts: "herdr-mod.<command>" in keys.json; the tabs role handles them (always visible).
 import { View, div } from "gpui-kit";
 import { props, nextCommand } from "herdr";
@@ -18,8 +18,10 @@ import Close from "./roles/close.js";
 import Pane from "./roles/pane.js";
 import Worktree from "./roles/worktree.js";
 import Limpiar from "./roles/limpiar.js";
+import Ver from "./roles/ver.js";
+import AgentMenu from "./roles/agentmenu.js";
 
-const ROLES = { agents: Agents, spaces: Spaces, tabs: Tabs, github: Github, equipo: Equipo, uso: Uso, tips: Tips, waiting: Waiting, buscar: Buscar, close: Close, pane: Pane, worktree: Worktree, limpiar: Limpiar };
+const ROLES = { agents: Agents, spaces: Spaces, tabs: Tabs, github: Github, equipo: Equipo, uso: Uso, tips: Tips, waiting: Waiting, buscar: Buscar, close: Close, pane: Pane, worktree: Worktree, limpiar: Limpiar, ver: Ver, agentmenu: AgentMenu };
 
 class Missing extends View {
   init() {}

@@ -13,7 +13,7 @@ For each hc terminal running Claude Code or Codex:
   `codex exec` / `claude -p` launched under it. {pid, secs, tool, kind, phase?, stop?,
   others?: [the rest, if several run at once]}.
 - subagents: Claude's own sub-agents (Agent tool) still running: {id, name, type,
-  activity, secs, bg}.
+  activity, secs, bg, path (its transcript)}. Codex jobs also carry `log`.
 
 Claude: ~/.claude/sessions/<pid>.json gives the session; the transcript is at
 ~/.claude/projects/*/<session>.jsonl. Codex: the newest rollout with that cwd.
@@ -154,7 +154,9 @@ def plugin_jobs():
     script = first_file(f"{HOME}/.claude/plugins/cache/*/codex/*/scripts/codex-companion.mjs")
     for path in glob.glob(PLUGIN_JOBS):
         try:
-            if os.path.getmtime(path) < time.time() - 86400:
+            # Only the job's start and phase changes rewrite the file: a long one can go hours
+            # untouched, so the week is just to skip the old ones cheaply.
+            if os.path.getmtime(path) < time.time() - 7 * 86400:
                 continue
             j = json.load(open(path))
         except (OSError, ValueError):
@@ -162,7 +164,7 @@ def plugin_jobs():
         if j.get("status") not in ("queued", "running") or not j.get("sessionId") or not alive(j.get("pid")):
             continue
         rv = {"pid": j["pid"], "secs": iso_secs(j.get("startedAt") or j.get("createdAt")), "tool": "Codex",
-              "kind": KINDS.get(j.get("kind"), j.get("kind") or "review"), "phase": j.get("phase")}
+              "kind": KINDS.get(j.get("kind"), j.get("kind") or "review"), "phase": j.get("phase"), "log": j.get("logFile")}
         if node and script and j.get("workspaceRoot"):
             data = path.split("/state/")[0]
             rv["stop"] = ["env", f"CLAUDE_PLUGIN_DATA={data}", node, script, "cancel", j["id"], "--cwd", j["workspaceRoot"]]
@@ -171,7 +173,7 @@ def plugin_jobs():
     # rest go in "others".
     for sid, jobs in out.items():
         jobs.sort(key=lambda r: -r["secs"])
-        out[sid] = {**jobs[0], "others": [{k: r[k] for k in ("kind", "secs", "stop", "pid", "phase") if k in r} for r in jobs[1:]]} if len(jobs) > 1 else jobs[0]
+        out[sid] = {**jobs[0], "others": [{k: r[k] for k in ("kind", "secs", "stop", "pid", "phase", "log") if k in r} for r in jobs[1:]]} if len(jobs) > 1 else jobs[0]
     return out
 
 
@@ -197,7 +199,7 @@ def subagents(sid):
         born = getattr(fst, "st_birthtime", fst.st_ctime)
         out.append({"id": os.path.basename(path)[6:-6], "name": meta.get("description") or meta.get("agentType") or "sub-agent",
                     "type": meta.get("agentType"), "activity": st.get("activity"), "secs": int(time.time() - born),
-                    "bg": meta.get("requestShape") == "background"})
+                    "bg": meta.get("requestShape") == "background", "path": path})
     return sorted(out, key=lambda s: -s["secs"])
 
 
@@ -214,9 +216,10 @@ def child_reviews():
     procs, kids = {}, {}
     for line in sh("ps", "-A", "-o", "pid=,ppid=,etime=,command=").splitlines():
         f = line.split(None, 3)
-        if len(f) == 4:
-            procs[int(f[0])] = (int(f[1]), f[2], f[3])
-            kids.setdefault(int(f[1]), []).append(int(f[0]))
+        if len(f) != 4 or not f[0].isdigit() or not f[1].isdigit():
+            continue  # an odd ps line (a command spanning lines) must not take the list down
+        procs[int(f[0])] = (int(f[1]), f[2], f[3])
+        kids.setdefault(int(f[1]), []).append(int(f[0]))
 
     def find(root):
         stack, out = list(kids.get(root, [])), []
@@ -226,7 +229,11 @@ def child_reviews():
             m = re.search(r"codex-companion\.mjs\S*\s+(review|adversarial-review|task)\b", cmd)
             if m or re.search(r"(^|/)codex(\s+\S+)*\s+exec\b", cmd) or re.search(r"(^|/)claude\s+-p\b", cmd):
                 tool = "Claude" if re.search(r"(^|/)claude\s", cmd) else "Codex"
-                out.append({"pid": p, "secs": etime_secs(procs[p][1]), "tool": tool, "kind": KINDS[m.group(1)] if m else "review"})
+                try:
+                    secs = etime_secs(procs[p][1])
+                except ValueError:
+                    secs = 0
+                out.append({"pid": p, "secs": secs, "tool": tool, "kind": KINDS[m.group(1)] if m else "review"})
                 continue
             stack.extend(kids.get(p, []))
         return max(out, key=lambda r: r["secs"]) if out else None
@@ -371,7 +378,7 @@ def codex_transcript(path):
 
 
 # Extensions: any other .py next to this one with start(ctx) -> enrich(st, info).
-CORE = {"agentes", "teams", "prs", "usage", "limits", "limpiar"}
+CORE = {"agentes", "teams", "prs", "usage", "limits", "limpiar", "ver"}
 
 
 def extensions(ctx):
@@ -403,7 +410,15 @@ def main():
     out = {}
     term = json.loads(sh("hc", "ls", "--json") or "{}").get("terminals", [])
     exts = extensions({"sh": sh, "cache": cache})
-    jobs, under = plugin_jobs(), child_reviews()
+    # Neither may take the agent list down: without them there are just no reviews.
+    try:
+        jobs = plugin_jobs()
+    except Exception:  # noqa: BLE001
+        jobs = {}
+    try:
+        under = child_reviews()
+    except Exception:  # noqa: BLE001
+        under = lambda _pid: None
     live = set()
     for t in term:
         if t.get("state") != "live" or t.get("agent") not in ("claude-code", "codex"):
