@@ -169,7 +169,19 @@ export default class Agents extends View {
     cx.spawn(async (cx) => {
       try {
         const r = await exec("python3", [`${home()}/.config/herdr-app/mods/herdr-mod/scripts/agentes.py`]);
-        const next = JSON.parse(r.stdout || "{}");
+        // The script failing must be seen: without it there's no activity, sleep or wake, and
+        // the tree looks fine. Three misses in a row (15 s) raise a warning in the bottom bar.
+        let next, why = "";
+        try { next = JSON.parse(r.stdout); } catch { why = (r.stderr || r.stdout || "no output").trim().split("\n").pop().slice(0, 200); }
+        if (next && !Object.keys(next).length && agents().some((a) => /claude|codex/i.test(a.program?.name ?? ""))) { next = null; why = "it returned no agents, but there are agents running"; }
+        if (!next) {
+          this.lkMisses = (this.lkMisses ?? 0) + 1;
+          if (this.lkMisses === 3) setShared("herdr-mod.estado.error", { why, at: Date.now() });
+          this.loadingLk = false;
+          return;
+        }
+        if (shared("herdr-mod.estado.error")) setShared("herdr-mod.estado.error", null); // also one left by a previous load of the mod
+        this.lkMisses = 0;
         // A cross-review running past 15 min: alert, once per process.
         for (const [addr, st] of Object.entries(next)) {
           const rv = st.review;

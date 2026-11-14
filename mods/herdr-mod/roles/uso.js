@@ -128,7 +128,7 @@ export default class Uso extends View {
       cx.timer.every(10000, (cx) => this.loadStats(cx, true));
       // Agent state and alerts change in shared: re-render as soon as they do.
       cx.timer.every(1500, (cx) => {
-        const now = JSON.stringify([shared("herdr-mod.estado"), shared("herdr-mod.alerts"), focused()?.agent, agents().map((a) => [a.address, a.status])]);
+        const now = JSON.stringify([shared("herdr-mod.estado"), shared("herdr-mod.alerts"), focused()?.agent, agents().map((a) => [a.address, a.status]), shared("herdr-mod.estado.error")?.at]);
         if (now !== this.lastLoop) { this.lastLoop = now; cx.notify(); }
       });
       return;
@@ -286,6 +286,10 @@ export default class Uso extends View {
       .when(Boolean(where), (el) => el.child(div().text_size(14.5).text_color(fg).opacity(0.7).child("›")).child(div().text_size(14.5).font_semibold().text_color(fg).child(where)));
     // Right of the project: the focused agent's stage and what needs attention.
     const loop = this.loopFeedback(t, f?.agent ?? pane?.terminal);
+    // The agents script is failing: nothing about the agents is up to date.
+    const broken = shared("herdr-mod.estado.error");
+    if (broken) loop.unshift(div().id("bar-broken").px(8).h(22).rounded(5).flex().items_center().text_size(11.5).font_semibold()
+      .bg(`${t.blocked}33`).text_color(t.blocked).tooltip(`scripts/agentes.py is failing, so activity, sleep and wake are stale:\n${broken.why}`).child("⚠ agent data unavailable"));
     const waiting = this.waitingBar(t, f?.agent ?? pane?.terminal);
     // Each block in its own box, so the bar doesn't read as one flat line.
     const box = (el) => el.h(26).px(10).rounded(7).bg(t.raised ?? t.hover).border_1().border_color(t.border);

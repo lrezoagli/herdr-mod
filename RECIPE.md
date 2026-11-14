@@ -62,7 +62,9 @@ at them. The interface is in English.
 - **Team panel (role `equipo`).** The project's Claude teams (agent teams), with one card
   per teammate.
 - **Footer (role `uso`, props `bar: true`).** From left to right:
-  - the focused project › agent, with its loopkit stage or "go" if an extension reports one;
+  - the focused project › agent, with its loopkit stage or "go" if an extension reports one.
+    If `agentes.py` fails three times in a row (15 s), a red "⚠ agent data unavailable" with
+    the error in its tooltip (`shared("herdr-mod.estado.error")`), until it answers again;
   - the agents that need an answer from you, one chip each (icon, name, and "!" when it's
     asking for permission or a question, "go?" when it's waiting for your go). Click takes
     you there. Agents that only finished their turn don't count. Centered, under a "WAITING

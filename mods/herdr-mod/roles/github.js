@@ -226,7 +226,10 @@ export default class GitHub extends View {
       const branch = old?.branch ?? names[0];
       let path = old?.path;
       // An agent already on that branch: message it.
-      const there = panes().find((p) => p.program?.agent && p.terminal && names.includes(p.branch));
+      // Only in this repo's checkouts: another repo can have a PR with the same number.
+      const roots = list.map((w) => w.path).filter(Boolean);
+      const there = panes().find((p) => p.program?.agent && p.terminal && names.includes(p.branch)
+        && p.cwd && roots.some((r) => p.cwd === r || p.cwd.startsWith(`${r}/`)));
       if (there) {
         await exec("hc", ["send", there.terminal, prAsk(own ? "fix" : "review", pr.number, pr.repo)]);
         return run("pane.focus", { pane: there.pane });
