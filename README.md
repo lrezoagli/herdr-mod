@@ -137,11 +137,10 @@ something would (uncommitted changes, unpushed commits, a sleeping agent). It de
 
 The footer shows, from left to right:
 
-- Claude and Codex usage left (5-hour and weekly windows);
-- CPU and RAM;
 - the focused project › agent;
-- "N PRs with comments" and "N pending reviews", which open the GitHub panel on that
-  section.
+- the agents waiting on you, one chip each: "!" when one asks for permission or a
+  question, "go?" when one waits for your go. Click one to jump to it;
+- on the right, Claude and Codex usage left (5-hour and weekly windows), then CPU and RAM.
 
 Click the usage numbers for a full dashboard: tokens and estimated cost per day, model
 and project.

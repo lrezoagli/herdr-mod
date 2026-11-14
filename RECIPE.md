@@ -58,10 +58,10 @@ at them. The interface is in English.
   - the focused project › agent, with its loopkit stage or "go" if an extension reports one;
   - the agents that need an answer from you, one chip each (icon, name, and "!" when it's
     asking for permission or a question, "go?" when it's waiting for your go). Click takes
-    you there. Agents that only finished their turn don't count;
-  - "N PRs with comments" and "N pending reviews", which open that section of the GitHub
-    panel;
-  - on the right, Claude and Codex usage (5 h and week) and the machine's CPU and RAM.
+    you there. Agents that only finished their turn don't count. Under a "WAITING ON YOU"
+    label, or "No one is waiting on you";
+  - on the right, each in its own box: Claude and Codex usage (5 h and week), and the
+    machine's CPU and RAM.
 - **Dialogs.**
   - ⌘J "Waiting on you" (role `waiting`): agents that are waiting and PR alerts.
   - ⌘K search agents (role `buscar`).
