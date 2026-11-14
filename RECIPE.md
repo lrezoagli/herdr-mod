@@ -55,11 +55,13 @@ at them. The interface is in English.
 - **Team panel (role `equipo`).** The project's Claude teams (agent teams), with one card
   per teammate.
 - **Footer (role `uso`, props `bar: true`).** From left to right:
-  - Claude and Codex usage (5 h and week);
-  - the machine's CPU and RAM;
-  - the focused project › agent;
+  - the focused project › agent, with its loopkit stage or "go" if an extension reports one;
+  - the agents that need an answer from you, one chip each (icon, name, and "!" when it's
+    asking for permission or a question, "go?" when it's waiting for your go). Click takes
+    you there. Agents that only finished their turn don't count;
   - "N PRs with comments" and "N pending reviews", which open that section of the GitHub
-    panel.
+    panel;
+  - on the right, Claude and Codex usage (5 h and week) and the machine's CPU and RAM.
 - **Dialogs.**
   - ⌘J "Waiting on you" (role `waiting`): agents that are waiting and PR alerts.
   - ⌘K search agents (role `buscar`).

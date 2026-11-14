@@ -1,7 +1,8 @@
 // Usage. Two forms:
-// - props.bar: the whole bottom bar (replaces workspace-status): on the left, how
-//   much Claude and Codex have left, CPU and RAM; on the right, the commands
-//   shortcut. Click opens the full panel.
+// - props.bar: the whole bottom bar (replaces workspace-status). On the left, the
+//   focused project › agent; then the agents that need an answer from you (asking for
+//   permission or a question, or waiting for your go) and the GitHub chips; on the right,
+//   how much Claude and Codex have left, CPU and RAM. Click on those opens the full panel.
 // - the full panel, as a centered dialog (openOverlay with props.tab). Two tabs:
 // - Accounts: for Claude Code and Codex, the account (email, plan), how much is left
 //   in each window (5 h, week), when it resets and how fast it's going; plus today's
@@ -14,7 +15,7 @@
 //   exec(..., { on }). Every 5 s, only while the tab is visible.
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { exec, home, machines, theme, props, openOverlay, run, window, shared, setShared, spaces, panes, focused, terminals } from "herdr";
+import { exec, home, machines, theme, props, openOverlay, run, window, shared, setShared, spaces, panes, focused, terminals, agents } from "herdr";
 
 import { scoped } from "../store.js";
 import { cfg, prefixRe, loadConfig } from "../config.js";
@@ -127,7 +128,7 @@ export default class Uso extends View {
       cx.timer.every(10000, (cx) => this.loadStats(cx, true));
       // Agent state and alerts change in shared: re-render as soon as they do.
       cx.timer.every(1500, (cx) => {
-        const now = JSON.stringify([shared("herdr-mod.estado"), shared("herdr-mod.alerts"), focused()?.agent]);
+        const now = JSON.stringify([shared("herdr-mod.estado"), shared("herdr-mod.alerts"), focused()?.agent, agents().map((a) => [a.address, a.status])]);
         if (now !== this.lastLoop) { this.lastLoop = now; cx.notify(); }
       });
       return;
@@ -285,9 +286,7 @@ export default class Uso extends View {
       .when(Boolean(where), (el) => el.child(div().text_size(14.5).text_color(fg).opacity(0.7).child("›")).child(div().text_size(14.5).font_semibold().text_color(fg).child(where)));
     // Right of the project: the focused agent's stage and what needs attention.
     const loop = this.loopFeedback(t, f?.agent ?? pane?.terminal);
-    return h_flex().size_full().px(10).gap(10).items_center().bg(t.chrome).border_t(1).border_color(t.border)
-      .text_size(fs(11.5)).text_color(t.muted)
-      .child(h_flex().flex_1().min_w(0).gap(10).items_center()
+    const usage = h_flex().flex_none().gap(10).items_center()
       .child(h_flex().id("bar-cuentas").gap(10).items_center().px(6).h(22).rounded(5).cursor_pointer().hover((s) => s.bg(t.hover))
         .on_mouse_up("left", (e) => open("limites")(e))
         .children([acct("claude", "icons/claude.svg"), fableBar(), acct("codex", "icons/codex.svg")].filter(Boolean))
@@ -298,11 +297,39 @@ export default class Uso extends View {
         .child(div().text_color(here ? level(here.cpu) : t.dim).child(here ? `${Math.round(here.cpu)}%` : "…"))
         .child(div().text_color(t.muted).child("RAM"))
         .child(div().text_color(here ? level((100 * here.mem_used) / here.mem_total) : t.dim)
-          .child(here ? `${Math.round((100 * here.mem_used) / here.mem_total)}%` : "…")))
-      )
-      .child(h_flex().flex_none().max_w(1100).gap(10).items_center().child(here_).children(loop))
-      .child(h_flex().flex_1().justify_end().gap(8).items_center().children(this.githubBar(t)).child(div().id("palette").text_color(t.muted).cursor_pointer().on_click(() => run("app.palette"))
-        .child(`${window()?.platform === "macos" ? "⌘" : "Ctrl"} Shift P  commands`)));
+          .child(here ? `${Math.round((100 * here.mem_used) / here.mem_total)}%` : "…")));
+    return h_flex().size_full().px(10).gap(10).items_center().bg(t.chrome).border_t(1).border_color(t.border)
+      .text_size(fs(11.5)).text_color(t.muted)
+      .child(h_flex().flex_none().max_w(700).gap(10).items_center().child(here_).children(loop))
+      .child(h_flex().id("bar-waiting").flex_1().min_w(0).gap(6).items_center().overflow_x_hidden()
+        .children(this.waitingBar(t, f?.agent ?? pane?.terminal)).children(this.githubBar(t)))
+      .child(usage);
+  }
+
+  // Agents that need an answer from you, one chip each: asking for permission or a
+  // question ("Needs you"), or done with a stage and waiting for your go (an extension's
+  // "next"). Just finishing a turn doesn't count. Oldest first; the focused one is left out.
+  waitingBar(t, focusedAddr) {
+    const lk = shared("herdr-mod.estado") ?? {};
+    const names = shared("herdr-mod.names") ?? {};
+    const since = new Map(terminals().map((k) => [k.address, k.status_ms ?? 0]));
+    const list = agents().filter((a) => a.address !== focusedAddr && (a.status === "blocked" || (a.status !== "working" && lk[a.address]?.next)))
+      .sort((x, y) => (x.status === "blocked" ? 0 : 1) - (y.status === "blocked" ? 0 : 1) || (since.get(x.address) ?? 0) - (since.get(y.address) ?? 0));
+    return list.map((a) => {
+      const blocked = a.status === "blocked", c = blocked ? t.blocked : t.accent;
+      const pane = panes().find((p) => p.pane === a.pane);
+      const space = spaces().find((s) => s.id === a.space);
+      const name = names[a.address] || pane?.branch?.replace(prefixRe(), "") || a.address;
+      const prog = terminals().find((k) => k.address === a.address)?.program;
+      const m = since.get(a.address) ? Math.floor((Date.now() - since.get(a.address)) / 60000) : 0;
+      return h_flex().id(`wait-${a.address}`).flex_none().h(22).px(7).gap(5).rounded(5).items_center().cursor_pointer()
+        .bg(`${c}26`).hover((s) => s.bg(`${c}44`))
+        .tooltip([`${space?.name ?? ""} › ${name}`, blocked ? "asking you something" : `waiting for your go on ${lk[a.address].next}`, m ? `for ${m} min` : null].filter(Boolean).join("\n"))
+        .on_click(() => run("agent.focus", { terminal: a.address }))
+        .when(Boolean(prog?.icon), (el) => el.child(prog.tint ? svg(prog.icon).size(12).text_color(t.foreground) : image(prog.icon).size(12)))
+        .child(div().max_w(160).truncate().font_semibold().text_color(t.foreground).child(name))
+        .child(div().font_bold().text_color(c).child(blocked ? "!" : "go?"));
+    });
   }
 
   // GitHub in the bar (all repos): my PRs with comments to answer and reviews
@@ -345,15 +372,12 @@ export default class Uso extends View {
     const btn = (id, label, color, action) => div().id(id).px(7).h(20).rounded(5).flex().items_center().cursor_pointer()
       .text_size(11.5).font_semibold().bg(`${color}33`).text_color(color).hover((s) => s.bg(`${color}55`))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click((_e, cx) => { cx.stop_propagation(); action(); }).child(label);
-    if (st?.missing) {
-      out.push(div().px(7).h(20).rounded(5).flex().items_center().text_size(11.5).bg(t.raised).text_color(t.muted).child(st.missing));
-    } else if (st) {
+    if (st && !st.missing) {
       if (st.stage) {
         const c = /^(design|spec|tickets|split)/.test(st.stage) ? t.ansi4 : /^(impl|fix|small|refactor)/.test(st.stage) ? t.ansi3 : /^pr/.test(st.stage) ? t.ansi2 : t.muted;
         out.push(div().px(7).h(20).rounded(5).flex().items_center().text_size(12).font_bold().bg(`${c}33`).text_color(c)
           .child(`${st.size ? `${st.size} · ` : ""}/${st.stage}`));
       }
-      if (st.activity) out.push(div().max_w(320).truncate().text_size(12).text_color(t.foreground).child(st.activity));
     }
     if (st?.review) {
       const m = Math.floor(st.review.secs / 60), c = st.review.secs >= 1200 ? t.blocked : st.review.secs >= 600 ? t.ansi3 : t.muted;
