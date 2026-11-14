@@ -350,15 +350,6 @@ export default class Agents extends View {
         .child(`${st.size ? `${st.size} · ` : ""}${st.stage}`));
     }
     if (st.next) out.push(div().flex_none().px(5).rounded(4).text_size(10.5).font_semibold().bg(`${t.accent}26`).text_color(t.accent).child("go?"));
-    // Codex (or Claude) reviewing for this agent: /codex:review, /codex:adversarial-review,
-    // /codex:rescue or a cross-review. Shown from the first second; yellow at 10 min, red at 20.
-    if (st.review) {
-      const rv = st.review, m = Math.floor(rv.secs / 60), c = rv.secs >= 1200 ? t.blocked : rv.secs >= 600 ? t.ansi3 : rv.tool === "Codex" ? t.ansi4 : t.ansi3;
-      out.push(h_flex().id(`rv-${a.address}`).flex_none().gap(4).items_center().px(5).rounded(4).text_size(10.5).font_semibold().bg(`${c}26`).text_color(c)
-        .tooltip(`${rv.tool} ${rv.kind ?? "review"} running for ${m} min${rv.phase ? ` (${rv.phase})` : ""}`)
-        .child(svg("mods/workspace-chrome/spinner.svg").size(9).text_color(c).spin(900))
-        .child(`${rv.tool} ${rv.kind === "adversarial" ? "adv" : rv.kind ?? "review"}${m ? ` ${m}m` : ""}`));
-    }
     return out;
   }
 
@@ -658,7 +649,7 @@ export default class Agents extends View {
       // No session (never chatted): it sleeps anyway and wakes from scratch, nothing lost.
       if (!st || !["claude-code", "codex"].includes(st.agent)) continue;
       if (!["idle", "done"].includes(a.status) || a.focused || a.address === me || a.address.includes("/")) continue;
-      if (this.pins.includes(a.address) || st.review || (this.teams?.[a.address] ?? []).length) continue;
+      if (this.pins.includes(a.address) || st.review || st.subagents?.length || (this.teams?.[a.address] ?? []).length) continue;
       if (terminals().some((x) => x.parent === a.address && x.state === "live")) continue;
       // Since when it's been like this: what track() records (survives restarts); terminals() doesn't have it.
       const since = this.since(a) || k?.status_ms;
@@ -833,17 +824,25 @@ export default class Agents extends View {
   }
 
   // Live sub-agents of `addr`, depth first, each with the tree lines in front of it.
-  // After the hc ones, its Claude teammates. They aren't
-  // terminals: they live inside the agent's (shift+down arrow to see them).
+  // After the hc ones: its Claude teammates, the sub-agents Claude launched (Agent tool) and
+  // what Codex is doing for it (/codex:review, /codex:adversarial-review, /codex:rescue, a
+  // cross-review). None of those are terminals: they live inside the agent's process.
   tree(all, addr, lead = []) {
     const program = all.find((x) => x.address === addr)?.program;
+    const st = this.lk?.[addr] ?? {};
     const mates = (this.teams?.[addr] ?? []).map((m) => ({ address: `${addr}~${m.name}`, name: m.name, status: m.status, program, mate: m, lead: addr }));
-    const kids = [...all.filter((k) => k.parent === addr && k.state === "live"), ...mates];
+    const subs = (st.subagents ?? []).map((s) => ({ address: `${addr}~sa-${s.id}`, name: s.name, status: "working", program: { icon: "icons/claude.svg" }, inner: { ...s, tip: [s.type, s.bg ? "in the background" : null, `${duration(s.secs * 1000)} running`].filter(Boolean).join(" · ") }, lead: addr }));
+    const jobs = (st.review ? [st.review, ...(st.review.others ?? [])] : []).map((r, i) => ({
+      address: `${addr}~rv-${r.pid ?? i}`, name: `${st.review.tool} ${r.kind ?? "review"}`, status: "working", lead: addr,
+      program: { icon: st.review.tool === "Claude" ? "icons/claude.svg" : "icons/codex.svg" },
+      inner: { activity: `${duration(r.secs * 1000)}${r.phase && r.phase !== "running" ? ` · ${r.phase}` : ""}`, tip: `${st.review.tool} ${r.kind ?? "review"} running for ${Math.floor(r.secs / 60)} min`, late: r.secs >= 1200 ? "blocked" : r.secs >= 600 ? "ansi3" : null },
+    }));
+    const kids = [...all.filter((k) => k.parent === addr && k.state === "live"), ...mates, ...subs, ...jobs];
     return kids.flatMap((k, i) => {
       const last = i === kids.length - 1;
       return [
         { t: k, lines: [...lead, last ? "└" : "├"] },
-        ...(k.mate ? [] : this.tree(all, k.address, [...lead, last ? "" : "│"])),
+        ...(k.mate || k.inner ? [] : this.tree(all, k.address, [...lead, last ? "" : "│"])),
       ];
     });
   }
@@ -866,7 +865,9 @@ export default class Agents extends View {
       .when(on, (el) => el.bg(t.raised))
       .hover((s) => s.bg(t.hover))
       .when(Boolean(k.mate), (el) => el.tooltip([k.mate.model, k.mate.task, ...(k.mate.recent ?? []).slice(0, 4).map((r) => `· ${r.text}`)].filter(Boolean).join("\n")))
+      .when(Boolean(k.inner), (el) => el.tooltip(k.inner.tip))
       .on_click(() => {
+        if (k.inner) return run("pane.focus", { terminal: k.lead });
         if (!k.mate) return this.peek(k.address);
         run("pane.focus", { terminal: k.lead });
         setShared("herdr-mod.tip", { items: [{ key: "⇧↓", text: "in Claude, switch between teammates" }], at: Date.now() });
@@ -875,8 +876,10 @@ export default class Agents extends View {
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
         .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
       .when(Boolean(pic), el => el.child(div().mr(8).child(pic)))
-      .child(div().when(!k.mate, (el) => el.flex_1()).when(Boolean(k.mate), (el) => el.flex_none().mr(7)).truncate().text_color(k.mate ? (t[MATE_COLOR[k.mate.color]] ?? t.muted) : on ? t.foreground : t.muted).child(k.name || k.template || k.program?.name || k.address))
+      .child(div().when(!k.mate && !k.inner, (el) => el.flex_1()).when(Boolean(k.mate || k.inner), (el) => el.flex_none().max_w(150).mr(7)).truncate()
+        .text_color(k.mate ? (t[MATE_COLOR[k.mate.color]] ?? t.muted) : k.inner ? t.foreground : on ? t.foreground : t.muted).child(k.name || k.template || k.program?.name || k.address))
       .when(Boolean(k.mate?.activity), (el) => el.child(div().flex_1().min_w(0).mr(6).truncate().text_size(10.5).text_color(k.mate.status === "working" ? t.muted : t.dim).child(k.mate.activity)))
+      .when(Boolean(k.inner), (el) => el.child(div().flex_1().min_w(0).mr(6).truncate().text_size(10.5).text_color(k.inner.late ? t[k.inner.late] : t.muted).child(k.inner.activity ?? "")))
       .child(this.status(t, { status: st }, compact));
   }
 

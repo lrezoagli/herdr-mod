@@ -10,7 +10,10 @@ For each hc terminal running Claude Code or Codex:
 - review: Codex (or Claude) working for it right now: /codex:review,
   /codex:adversarial-review and /codex:rescue from the Codex plugin for Claude Code (its
   jobs in ~/.claude/plugins/data/*/state/*/jobs, tied to the agent by session), or a
-  `codex exec` / `claude -p` launched under it. {pid, secs, tool, kind, stop?}.
+  `codex exec` / `claude -p` launched under it. {pid, secs, tool, kind, phase?, stop?,
+  others?: [the rest, if several run at once]}.
+- subagents: Claude's own sub-agents (Agent tool) still running: {id, name, type,
+  activity, secs, bg}.
 
 Claude: ~/.claude/sessions/<pid>.json gives the session; the transcript is at
 ~/.claude/projects/*/<session>.jsonl. Codex: the newest rollout with that cwd.
@@ -163,10 +166,39 @@ def plugin_jobs():
         if node and script and j.get("workspaceRoot"):
             data = path.split("/state/")[0]
             rv["stop"] = ["env", f"CLAUDE_PLUGIN_DATA={data}", node, script, "cancel", j["id"], "--cwd", j["workspaceRoot"]]
-        old = out.get(j["sessionId"])
-        if not old or rv["secs"] > old["secs"]:
-            out[j["sessionId"]] = rv
+        out.setdefault(j["sessionId"], []).append(rv)
+    # Several at once (a review and an adversarial in parallel): the oldest leads, the
+    # rest go in "others".
+    for sid, jobs in out.items():
+        jobs.sort(key=lambda r: -r["secs"])
+        out[sid] = {**jobs[0], "others": [{k: r[k] for k in ("kind", "secs", "stop", "pid", "phase") if k in r} for r in jobs[1:]]} if len(jobs) > 1 else jobs[0]
     return out
+
+
+# Claude's own sub-agents (Agent tool), running right now: each one leaves
+# <session>/subagents/agent-<id>.jsonl and a .meta.json with what it was asked and, in recent
+# versions, "finished". Teammates (agent teams) are left out: teams.py shows those.
+def subagents(sid):
+    out = []
+    for meta_path in glob.glob(f"{HOME}/.claude/projects/*/{sid}/subagents/*.meta.json"):
+        try:
+            meta = json.load(open(meta_path))
+            path = meta_path[: -len(".meta.json")] + ".jsonl"
+            fst = os.stat(path)
+        except (OSError, ValueError):
+            continue
+        if meta.get("finished") or meta.get("taskKind") == "in_process_teammate":
+            continue
+        if fst.st_mtime < time.time() - 1800:  # no sign of life in 30 min: Claude died with it
+            continue
+        st = cached(path, claude_transcript)
+        if meta.get("finished") is None and st.get("done"):
+            continue
+        born = getattr(fst, "st_birthtime", fst.st_ctime)
+        out.append({"id": os.path.basename(path)[6:-6], "name": meta.get("description") or meta.get("agentType") or "sub-agent",
+                    "type": meta.get("agentType"), "activity": st.get("activity"), "secs": int(time.time() - born),
+                    "bg": meta.get("requestShape") == "background"})
+    return sorted(out, key=lambda s: -s["secs"])
 
 
 def etime_secs(etime):
@@ -394,6 +426,10 @@ def main():
             rv = jobs.get(st.get("session")) or under(pid)
             if rv:
                 st["review"] = rv
+            if t["agent"] == "claude-code" and st.get("session"):
+                subs = subagents(st["session"])
+                if subs:
+                    st["subagents"] = subs
             for enrich in exts:
                 try:
                     enrich(st, info)
